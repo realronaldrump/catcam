@@ -6,7 +6,7 @@
     "trigger-rule": {
       "match": {
         "type": "payload-hash-sha1",
-        "secret": "MY_SECRET_TOKEN",
+        "secret": "7DFA54D5-DB8C-4177-9814-BD1CD5DE37B8",
         "parameter": {
           "source": "header",
           "name": "X-Hub-Signature"
