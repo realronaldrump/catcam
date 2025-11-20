@@ -148,6 +148,8 @@ async def api_stats():
     status_msg = "Idle"
     files_today = 0
     timeline_segments = []
+    elapsed_seconds = 0
+    segment_limit_seconds = int(conf.get("SEGMENT_TIME", 900))
     
     if today_path.exists():
         files = list(today_path.glob("*.mp4"))
@@ -160,6 +162,19 @@ async def api_stats():
             current_size = f"{(latest.stat().st_size / (1024*1024)):.2f} MB"
             status_msg = "Recording (Active)" if age < 20 else f"Last write: {int(age)}s ago"
             
+            # Calculate elapsed time from filename if active
+            if age < 20:
+                try:
+                    # Filename format: PM-01-18-00.mp4
+                    # We need to combine with today's date to get full timestamp
+                    time_str = latest.stem # PM-01-18-00
+                    # Parse: %p-%I-%M-%S
+                    file_time = datetime.strptime(time_str, "%p-%I-%M-%S").time()
+                    file_dt = datetime.combine(datetime.now().date(), file_time)
+                    elapsed_seconds = int((datetime.now() - file_dt).total_seconds())
+                except ValueError:
+                    pass # Fallback to 0 if format doesn't match
+
             # Build Timeline Data
             start_of_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
             
@@ -182,7 +197,8 @@ async def api_stats():
         "cam_active": cam_active, "box_active": box_active,
         "current_file": current_file, "current_size": current_size, "status_msg": status_msg,
         "disk": disk, "logs": logs, "files_today": files_today,
-        "cpu_temp": cpu_temp, "ping_ms": ping_ms, "timeline": timeline_segments
+        "cpu_temp": cpu_temp, "ping_ms": ping_ms, "timeline": timeline_segments,
+        "elapsed_seconds": elapsed_seconds, "segment_limit_seconds": segment_limit_seconds
     })
 
 @app.get("/library", response_class=HTMLResponse)

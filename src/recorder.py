@@ -46,14 +46,6 @@ def record_stream():
 
     while True:
         try:
-            # Debug: Check file existence and content
-            if Config.SETTINGS_FILE.exists():
-                print(f"DEBUG: Found settings file at {Config.SETTINGS_FILE}")
-                with open(Config.SETTINGS_FILE, "r") as f:
-                    print(f"DEBUG: File content:\n{f.read()}")
-            else:
-                print(f"DEBUG: Settings file NOT found at {Config.SETTINGS_FILE}")
-
             # Load config fresh each loop
             today_path, conf = ensure_directories()
             
@@ -62,7 +54,6 @@ def record_stream():
             
             rtsp_url = f"rtsp://{conf['CAMERA_USER']}:{conf['CAMERA_PASS']}@{conf['CAMERA_IP']}:554/h264Preview_01_main"
             segment_time = conf["SEGMENT_TIME"]
-            print(f"DEBUG: Loaded SEGMENT_TIME: {segment_time}")
             
             # Calculate duration to run until midnight
             duration = get_seconds_until_midnight()
