@@ -2,6 +2,8 @@ import os
 import shutil
 import time
 import subprocess
+import threading
+import logging
 from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, Request, Form
@@ -10,14 +12,76 @@ from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, JSO
 from fastapi.staticfiles import StaticFiles
 from .config import Config
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = FastAPI()
 templates = Jinja2Templates(directory="src/templates")
+
+# --- Singleton Video Camera ---
+class VideoCamera:
+    def __init__(self):
+        self.frame = None
+        self.last_frame_time = 0
+        self.lock = threading.Lock()
+        self.thread = threading.Thread(target=self._capture_loop, daemon=True)
+        self.thread.start()
+
+    def _capture_loop(self):
+        import cv2
+        logger.info("Starting video capture loop...")
+        while True:
+            try:
+                url = Config.get_rtsp_url()
+                cap = cv2.VideoCapture(url)
+                
+                if not cap.isOpened():
+                    logger.error(f"Failed to open RTSP stream: {url}")
+                    time.sleep(5)
+                    continue
+
+                while True:
+                    success, frame = cap.read()
+                    if not success:
+                        logger.warning("Failed to read frame from stream. Reconnecting...")
+                        break
+                    
+                    # Resize and encode once
+                    frame = cv2.resize(frame, (640, 360))
+                    ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
+                    
+                    if ret:
+                        with self.lock:
+                            self.frame = buffer.tobytes()
+                            self.last_frame_time = time.time()
+                    
+                    # Limit capture rate to ~15fps to save CPU if needed, 
+                    # but blocking read() usually handles timing.
+                    # time.sleep(0.05) 
+
+                cap.release()
+            except Exception as e:
+                logger.error(f"Error in video capture loop: {e}")
+            
+            time.sleep(2) # Wait before reconnecting
+
+    def get_frame(self):
+        # Return the last known frame
+        with self.lock:
+            if self.frame and (time.time() - self.last_frame_time) < 5:
+                return self.frame
+        return None
+
+# Global camera instance
+camera = VideoCamera()
 
 # --- Helpers ---
 
 def get_disk_usage():
     """Checks usage of the Box mount."""
     try:
+        # Ensure we use the correct path from Config, which should match Docker mount
         total, used, free = shutil.disk_usage(Config.BOX_ROOT)
         percent_used = (used / total) * 100
         return {"percent": round(percent_used, 1), "free_gb": round(free / (1024**3), 1)}
@@ -131,12 +195,15 @@ async def library(request: Request, date: str = None):
     if target_dir.exists():
         for f in sorted(target_dir.glob("*.mp4")):
             # Create a relative path for the player
-            rel_path = f.relative_to(Config.BOX_ROOT)
-            videos.append({
-                "name": f.name, 
-                "size": f"{round(f.stat().st_size/(1024*1024),1)} MB", 
-                "path": str(rel_path)
-            })
+            try:
+                rel_path = f.relative_to(Config.BOX_ROOT)
+                videos.append({
+                    "name": f.name, 
+                    "size": f"{round(f.stat().st_size/(1024*1024),1)} MB", 
+                    "path": str(rel_path)
+                })
+            except ValueError:
+                pass # Should not happen if BOX_ROOT is correct
     return templates.TemplateResponse("index.html", {"request": request, "page": "library", "current_date": date, "videos": videos})
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -181,36 +248,20 @@ async def save_settings(request: Request,
         for key, val in data.items():
             f.write(f'{key}="{val}"\n')
             
-    # Trigger restart (Simple way: exit, and let Docker restart)
-    # But for web, we might just want to reload config. 
-    # For recorder, it needs a restart.
-    # We can touch a restart file or just let the user know they might need to restart manually if we don't have a supervisor.
-    # Actually, the requirement is "100% hands off".
-    # If we exit, Docker restarts us.
-    
     msg = "Settings saved! Services will restart shortly."
-    
-    # Schedule exit (in a real app we'd use a supervisor or signal, but here we can just crash/exit)
-    # We'll rely on the user refreshing or the app coming back up.
-    # To be safe, we won't kill the web server immediately in this request, but maybe we can just return the response.
-    
     return templates.TemplateResponse("index.html", {"request": request, "page": "settings", "config": data, "message": msg})
 
 @app.get("/video_feed")
 async def video_feed():
-    import cv2
-    url = Config.get_rtsp_url()
     def gen():
-        cap = cv2.VideoCapture(url)
         while True:
-            success, frame = cap.read()
-            if not success:
-                time.sleep(2)
-                cap = cv2.VideoCapture(Config.RTSP_URL)
-                continue
-            frame = cv2.resize(frame, (640, 360))
-            ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
-            yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+            frame = camera.get_frame()
+            if frame:
+                yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                time.sleep(0.06) # ~15 FPS
+            else:
+                time.sleep(0.1) # Wait for frame
+                
     return StreamingResponse(gen(), media_type="multipart/x-mixed-replace; boundary=frame")
 
 @app.get("/play_file/{file_path:path}")

@@ -2,7 +2,7 @@ import time
 import subprocess
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from config import Config
 
@@ -26,6 +26,13 @@ def ensure_directories():
     today_path.mkdir(parents=True, exist_ok=True)
     return today_path, conf
 
+def get_seconds_until_midnight():
+    """Calculates seconds remaining until the next midnight."""
+    now = datetime.now()
+    tomorrow = now + timedelta(days=1)
+    midnight = datetime(year=tomorrow.year, month=tomorrow.month, day=tomorrow.day, hour=0, minute=0, second=0)
+    return int((midnight - now).total_seconds())
+
 def record_stream():
     """Starts the FFmpeg recording process."""
     if not wait_for_box():
@@ -42,9 +49,16 @@ def record_stream():
             
             rtsp_url = f"rtsp://{conf['CAMERA_USER']}:{conf['CAMERA_PASS']}@{conf['CAMERA_IP']}:554/h264Preview_01_main"
             segment_time = conf["SEGMENT_TIME"]
+            
+            # Calculate duration to run until midnight (plus a small buffer to be safe, but -t is precise)
+            # Actually, we want to stop exactly at midnight so the loop restarts and creates the new directory.
+            # We'll subtract 5 seconds to give time for the loop to restart right at 00:00:00 roughly.
+            duration = get_seconds_until_midnight()
+            if duration < 10: duration = 10 # Prevent rapid loops if close to midnight
 
             print(f"Starting recording from {conf['CAMERA_IP']}...")
             print(f"Segment time: {segment_time}s")
+            print(f"Running for {duration} seconds (until midnight)...")
             
             cmd = [
                 "ffmpeg",
@@ -57,6 +71,7 @@ def record_stream():
                 "-f", "segment",
                 "-segment_time", str(segment_time),
                 "-strftime", "1",
+                "-t", str(duration), # Stop before midnight
                 file_template
             ]
 
