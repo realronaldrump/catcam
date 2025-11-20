@@ -91,10 +91,34 @@ def get_disk_usage():
 def get_cpu_temp():
     """Reads Linux thermal zone (mounted read-only)."""
     try:
-        with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
-            temp_c = int(f.read()) / 1000
+        base = Path("/sys/class/thermal")
+        if not base.exists():
+            return "--"
+
+        # Preferred zones that usually represent the CPU core/package
+        preferred_types = ["x86_pkg_temp", "coretemp", "k10temp", "cpu-thermal"]
+        
+        # 1. Scan for a preferred zone
+        for z in base.glob("thermal_zone*"):
+            try:
+                type_path = z / "type"
+                if type_path.exists():
+                    z_type = type_path.read_text().strip()
+                    if z_type in preferred_types:
+                        # Found a good one!
+                        temp_c = int((z / "temp").read_text().strip()) / 1000
+                        return f"{temp_c * 9/5 + 32:.1f}°F"
+            except: continue
+
+        # 2. Fallback to thermal_zone0 (original behavior)
+        tz0 = base / "thermal_zone0" / "temp"
+        if tz0.exists():
+            temp_c = int(tz0.read_text().strip()) / 1000
             return f"{temp_c * 9/5 + 32:.1f}°F"
-    except: return "--"
+            
+    except Exception:
+        pass
+    return "--"
 
 def get_camera_ping(ip):
     """Simple ping to check connection quality."""
