@@ -141,13 +141,35 @@ async def library(request: Request, date: str = None):
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "page": "settings", "config": Config.load()})
+    conf = Config.load()
+    # Convert total seconds to minutes and seconds for display
+    total_seconds = int(conf.get("SEGMENT_TIME", 900))
+    minutes = total_seconds // 60
+    seconds = total_seconds % 60
+    
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "page": "settings", 
+        "config": conf,
+        "segment_minutes": minutes,
+        "segment_seconds": seconds
+    })
 
 @app.post("/settings")
-async def save_settings(request: Request, subfolder: str = Form(...), segment_time: int = Form(...), camera_ip: str = Form(...), camera_user: str = Form(...), camera_pass: str = Form(...)):
+async def save_settings(request: Request, 
+                      subfolder: str = Form(...), 
+                      segment_minutes: int = Form(...),
+                      segment_seconds: int = Form(...),
+                      camera_ip: str = Form(...), 
+                      camera_user: str = Form(...), 
+                      camera_pass: str = Form(...)):
+    
+    # Convert minutes/seconds back to total seconds
+    total_seconds = (segment_minutes * 60) + segment_seconds
+    
     data = {
         "SUBFOLDER": subfolder, 
-        "SEGMENT_TIME": str(segment_time), 
+        "SEGMENT_TIME": str(total_seconds), 
         "CAMERA_IP": camera_ip, 
         "CAMERA_USER": camera_user, 
         "CAMERA_PASS": camera_pass

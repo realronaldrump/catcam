@@ -321,8 +321,17 @@
                 message }}</div>{% endif %}
             <form action="/settings" method="post">
                 <label>Subfolder:</label> <input type="text" name="subfolder" value="{{ config.SUBFOLDER }}">
-                <label>Segment (sec):</label> <input type="number" name="segment_time"
-                    value="{{ config.SEGMENT_TIME }}">
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                    <div style="flex: 1;">
+                        <label>Segment (min):</label>
+                        <input type="number" name="segment_minutes" value="{{ segment_minutes }}" min="0" required>
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Segment (sec):</label>
+                        <input type="number" name="segment_seconds" value="{{ segment_seconds }}" min="0" max="59"
+                            required>
+                    </div>
+                </div>
                 <h3>Camera</h3>
                 <label>IP:</label> <input type="text" name="camera_ip" value="{{ config.CAMERA_IP }}">
                 <label>User:</label> <input type="text" name="camera_user" value="{{ config.CAMERA_USER }}">
