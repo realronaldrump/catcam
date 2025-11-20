@@ -39,6 +39,11 @@ def record_stream():
         print("ERROR: Box mount failed or timed out.")
         sys.exit(1)
 
+    # Track last config mtime to detect changes
+    last_config_mtime = 0
+    if Config.SETTINGS_FILE.exists():
+        last_config_mtime = Config.SETTINGS_FILE.stat().st_mtime
+
     while True:
         try:
             # Load config fresh each loop
@@ -50,11 +55,9 @@ def record_stream():
             rtsp_url = f"rtsp://{conf['CAMERA_USER']}:{conf['CAMERA_PASS']}@{conf['CAMERA_IP']}:554/h264Preview_01_main"
             segment_time = conf["SEGMENT_TIME"]
             
-            # Calculate duration to run until midnight (plus a small buffer to be safe, but -t is precise)
-            # Actually, we want to stop exactly at midnight so the loop restarts and creates the new directory.
-            # We'll subtract 5 seconds to give time for the loop to restart right at 00:00:00 roughly.
+            # Calculate duration to run until midnight
             duration = get_seconds_until_midnight()
-            if duration < 10: duration = 10 # Prevent rapid loops if close to midnight
+            if duration < 10: duration = 10 
 
             print(f"Starting recording from {conf['CAMERA_IP']}...")
             print(f"Segment time: {segment_time}s")
@@ -64,26 +67,40 @@ def record_stream():
                 "ffmpeg",
                 "-nostdin",
                 "-rtsp_transport", "tcp",
-                "-timeout", "5000000",  # 5s timeout for socket operations (microsecond)
+                "-timeout", "5000000",
                 "-i", rtsp_url,
                 "-c", "copy",
                 "-map", "0",
                 "-f", "segment",
                 "-segment_time", str(segment_time),
                 "-strftime", "1",
-                "-t", str(duration), # Stop before midnight
+                "-t", str(duration),
                 file_template
             ]
 
             # Run FFmpeg
-            # We don't capture stdout/stderr so they go to the Docker logs directly.
-            # This also prevents buffer deadlocks which can cause FFmpeg to hang.
             process = subprocess.Popen(cmd)
             print(f"FFmpeg started with PID {process.pid}")
-            process.wait()
             
-            print("FFmpeg exited. Restarting in 5 seconds...")
-            time.sleep(5)
+            # Monitor process and config file
+            while process.poll() is None:
+                time.sleep(1)
+                
+                # Check for config change
+                if Config.SETTINGS_FILE.exists():
+                    current_mtime = Config.SETTINGS_FILE.stat().st_mtime
+                    if current_mtime > last_config_mtime:
+                        print("Config changed. Restarting recorder...")
+                        last_config_mtime = current_mtime
+                        process.terminate()
+                        try:
+                            process.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            process.kill()
+                        break
+            
+            print("FFmpeg exited. Restarting in 2 seconds...")
+            time.sleep(2)
         except Exception as e:
             print(f"Error running FFmpeg: {e}")
             time.sleep(10)
