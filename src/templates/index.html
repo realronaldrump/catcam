@@ -4,22 +4,57 @@
 <head>
     <title>CatCam Monitor</title>
     <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --card-bg: #252525;
+            --nav-bg: #000;
+            --border-color: #333;
+            --input-bg: #333;
+            --input-border: #444;
+            --nav-text: #aaa;
+            --nav-hover-bg: #007bff;
+            --nav-active-text: white;
+            --text-muted: #aaa;
+            --shadow: none;
+        }
+
+        body.light-mode {
+            --bg-color: #f0f2f5;
+            --text-color: #1c1e21;
+            --card-bg: #ffffff;
+            --nav-bg: #ffffff;
+            --border-color: #ddd;
+            --input-bg: #fff;
+            --input-border: #ccc;
+
+            --nav-text: #65676b;
+            --text-muted: #666;
+            --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
         body {
             font-family: 'Segoe UI', sans-serif;
-            background: #1a1a1a;
-            color: #e0e0e0;
+            background: var(--bg-color);
+            color: var(--text-color);
             margin: 0;
+            transition: background 0.3s, color 0.3s;
         }
 
         .nav {
-            background: #000;
+            background: var(--nav-bg);
             padding: 15px;
             text-align: center;
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: var(--shadow);
+            transition: background 0.3s, border-color 0.3s;
         }
 
         .nav a {
-            color: #aaa;
+            color: var(--nav-text);
             text-decoration: none;
             padding: 10px 20px;
             margin: 0 5px;
@@ -29,8 +64,24 @@
 
         .nav a:hover,
         .nav a.active {
-            background: #007bff;
-            color: white;
+            background: var(--nav-hover-bg);
+            color: var(--nav-active-text);
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 20px;
+            margin-left: 20px;
+            font-size: 1.2em;
+            transition: all 0.3s;
+        }
+
+        .theme-toggle:hover {
+            background: var(--input-bg);
         }
 
         .container {
@@ -40,16 +91,18 @@
         }
 
         .card {
-            background: #252525;
+            background: var(--card-bg);
             padding: 20px;
             border-radius: 10px;
             margin-bottom: 20px;
-            border: 1px solid #333;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            transition: background 0.3s, border-color 0.3s;
         }
 
         h2 {
             margin-top: 0;
-            color: #fff;
+            color: var(--text-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -89,7 +142,7 @@
             height: 200px;
             overflow-y: auto;
             font-size: 12px;
-            border: 1px solid #333;
+            border: 1px solid var(--border-color);
             white-space: pre-wrap;
         }
 
@@ -97,9 +150,9 @@
         button,
         select {
             padding: 10px;
-            background: #333;
-            border: 1px solid #444;
-            color: white;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            color: var(--text-color);
             border-radius: 4px;
         }
 
@@ -124,7 +177,7 @@
         }
 
         .disk-bg {
-            background: #444;
+            background: var(--input-border);
             height: 20px;
             border-radius: 10px;
             overflow: hidden;
@@ -147,12 +200,13 @@
         /* Timeline Styles */
         .timeline-container {
             margin-top: 10px;
-            background: #333;
+            background: var(--input-bg);
             height: 30px;
             width: 100%;
             position: relative;
             border-radius: 4px;
             overflow: hidden;
+            border: 1px solid var(--border-color);
         }
 
         .timeline-segment {
@@ -160,7 +214,7 @@
             height: 100%;
             background: #28a745;
             opacity: 0.8;
-            border-right: 1px solid #1a1a1a;
+            border-right: 1px solid var(--bg-color);
         }
 
         .timeline-markers {
@@ -178,13 +232,14 @@
         <a href="/" class="{% if page == 'dashboard' %}active{% endif %}">Live Dashboard</a>
         <a href="/library" class="{% if page == 'library' %}active{% endif %}">Library</a>
         <a href="/settings" class="{% if page == 'settings' %}active{% endif %}">Settings</a>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
     </div>
 
     <div class="container">
         {% if page == 'dashboard' %}
         <div class="card">
-            <h2>🔴 Live Feed <span id="clock" style="font-size:0.6em; color:#888;"></span></h2>
-            <img src="/video_feed" style="width: 100%; border-radius: 5px; border: 1px solid #444;">
+            <h2>🔴 Live Feed <span id="clock" style="font-size:0.6em; color:var(--text-muted);"></span></h2>
+            <img src="/video_feed" style="width: 100%; border-radius: 5px; border: 1px solid var(--input-border);">
         </div>
 
         <div class="stats-grid">
@@ -198,13 +253,13 @@
                 </div>
 
                 <div
-                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; padding-top: 10px; border-top: 1px solid #444;">
+                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--input-border);">
                     <div>
-                        <div style="font-size: 0.8em; color: #aaa;">CPU Temp</div>
+                        <div style="font-size: 0.8em; color: var(--text-muted);">CPU Temp</div>
                         <div id="cpu-temp" style="font-weight: bold;">--°F</div>
                     </div>
                     <div>
-                        <div style="font-size: 0.8em; color: #aaa;">Cam Latency</div>
+                        <div style="font-size: 0.8em; color: var(--text-muted);">Cam Latency</div>
                         <div id="ping-ms" style="font-weight: bold;">-- ms</div>
                     </div>
                 </div>
@@ -225,9 +280,9 @@
                     <span>Status:</span><span id="write-status" class="badge yellow">...</span>
                 </div>
                 <div style="margin-top: 10px;">
-                    <div style="font-size: 0.9em; color: #aaa;">Current File:</div>
+                    <div style="font-size: 0.9em; color: var(--text-muted);">Current File:</div>
                     <div id="curr-file" style="font-weight: bold;">...</div>
-                    <div style="font-size: 0.9em; color: #aaa; margin-top: 5px;">Size:</div>
+                    <div style="font-size: 0.9em; color: var(--text-muted); margin-top: 5px;">Size:</div>
                     <div id="curr-size" class="stat-val" style="color: #28a745;">0.00 MB</div>
                 </div>
             </div>
@@ -235,7 +290,8 @@
 
         <div class="card">
             <h2>📅 24-Hour Timeline (Today)</h2>
-            <div style="font-size: 0.8em; color: #aaa; margin-bottom: 5px;">Green blocks = Recorded Video. Black gaps =
+            <div style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 5px;">Green blocks = Recorded Video.
+                Black gaps =
                 Missing footage.</div>
             <div id="timeline" class="timeline-container">
             </div>
@@ -303,9 +359,10 @@
             <ul style="list-style: none; padding: 0;">
                 {% for vid in videos %}
                 <li
-                    style="padding: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between;">
-                    <span>🎬 {{ vid.name }} <small style="color: #888;">({{ vid.size }})</small></span>
-                    <a href="/play_file/{{ vid.path }}" target="_blank" style="color: #007bff; text-decoration: none;">▶
+                    style="padding: 10px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+                    <span>🎬 {{ vid.name }} <small style="color: var(--text-muted);">({{ vid.size }})</small></span>
+                    <a href="/play_file/{{ vid.path }}" target="_blank"
+                        style="color: var(--nav-hover-bg); text-decoration: none;">▶
                         Play</a>
                 </li>
                 {% endfor %}
@@ -341,6 +398,23 @@
         </div>
         {% endif %}
     </div>
+    <script>
+        // Theme Toggling Logic
+        function toggleTheme() {
+            const body = document.body;
+            body.classList.toggle('light-mode');
+            const isLight = body.classList.contains('light-mode');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        }
+
+        // Initialize Theme
+        (function () {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-mode');
+            }
+        })();
+    </script>
 </body>
 
 </html>
