@@ -77,7 +77,14 @@ async def api_stats():
     # 1. System Vitals
     cam_active = get_service_status("catcam.service")
     box_active = BOX_ROOT.exists() and os.access(BOX_ROOT, os.W_OK)
+    
+    # Disk: Handle "unlimited" Box storage gracefully
     disk = get_disk_usage()
+    if disk["free_gb"] > 10000: # If > 10TB, it's likely cloud/unlimited
+        disk_text = f"{disk['percent']}% (Cloud)"
+    else:
+        disk_text = f"{disk['percent']}% ({disk['free_gb']} GB free)"
+
     cpu_temp = get_cpu_temp()
     ping_ms = get_camera_ping(CAMERA_IP)
     
@@ -98,14 +105,19 @@ async def api_stats():
             age = time.time() - latest.stat().st_mtime
             current_file = latest.name
             current_size = f"{(latest.stat().st_size / (1024*1024)):.2f} MB"
-            status_msg = "Recording (Active)" if age < 20 else f"Last write: {int(age)}s ago"
+            
+            # If age is high, maybe we are just not writing?
+            if age < 30:
+                status_msg = "Recording (Active)"
+            else:
+                status_msg = f"Last write: {int(age)}s ago"
             
             start_of_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
             
             for f in files:
                 end_ts = f.stat().st_mtime
                 duration = 900 # default
-                if f == latest and age < 20:
+                if f == latest and age < 30:
                     duration = end_ts - f.stat().st_ctime
                     if duration < 0: duration = 60
                 
@@ -115,8 +127,13 @@ async def api_stats():
                 
                 timeline_segments.append({"left": f"{left_pct:.2f}%", "width": f"{width_pct:.2f}%"})
 
-    # Logs (from supervisord logs if possible, or just a placeholder for now)
-    logs = "Logs are managed by Docker/Supervisord."
+    # Logs: Read from the shared log file
+    try:
+        # Read last 50 lines
+        proc = subprocess.run(["tail", "-n", "50", "/app/catcam.log"], capture_output=True, text=True)
+        logs = proc.stdout
+    except Exception as e:
+        logs = f"Error reading logs: {e}"
     
     # Uptime
     try:
@@ -127,7 +144,8 @@ async def api_stats():
     return JSONResponse({
         "cam_active": cam_active, "box_active": box_active,
         "current_file": current_file, "current_size": current_size, "status_msg": status_msg,
-        "disk": disk, "logs": logs, "files_today": files_today, "uptime": uptime,
+        "disk": {"percent": disk["percent"], "text": disk_text}, 
+        "logs": logs, "files_today": files_today, "uptime": uptime,
         "cpu_temp": cpu_temp, "ping_ms": ping_ms, "timeline": timeline_segments
     })
 

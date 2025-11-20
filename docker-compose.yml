@@ -5,8 +5,7 @@ services:
     image: ghcr.io/realronaldrump/catcam:latest
     container_name: catcam-service
     restart: always
-    ports:
-      - "8000:8000"
+    network_mode: "host"
     volumes:
       - /home/davis/Box:/data/Box
     environment:
