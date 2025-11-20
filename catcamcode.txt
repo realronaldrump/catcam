@@ -1,0 +1,545 @@
+================================================================================
+/etc/systemd/system/rclone-box.service
+================================================================================
+[Unit]
+Description=Mount Box to local folder
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=davis
+Group=davis
+ExecStartPre=/bin/mkdir -p /home/davis/Box
+ExecStart=/usr/bin/rclone mount Box: /home/davis/Box \
+    --config=/home/davis/.config/rclone/rclone.conf \
+    --vfs-cache-mode writes \
+    --vfs-cache-max-size 5G \
+    --vfs-cache-max-age 1h \
+    --allow-other \
+    --umask 002 \
+    --log-file /tmp/rclone-box.log \
+    --log-level NOTICE
+ExecStop=/bin/fusermount -uz /home/davis/Box
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
+================================================================================
+/etc/systemd/system/catcam.service
+================================================================================
+[Unit]
+Description=CatCam FFMPEG Recording
+Requires=rclone-box.service
+After=rclone-box.service network-online.target
+BindsTo=rclone-box.service
+
+[Service]
+Type=simple
+User=davis
+Group=davis
+ExecStart=/home/davis/catcam_runner.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
+================================================================================
+/etc/systemd/system/catcam-web.service
+================================================================================
+[Unit]
+Description=CatCam Lite Web Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=davis
+WorkingDirectory=/home/davis/catcam-web
+ExecStart=/home/davis/catcam-web/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
+================================================================================
+/etc/sudoers.d/catcam-web
+================================================================================
+# NOTE: This file was not uploaded, so it's not included here.
+# If you need to include sudoers permissions, you should add an entry like:
+# davis ALL=(ALL) NOPASSWD: /bin/systemctl restart catcam.service
+# davis ALL=(ALL) NOPASSWD: /bin/systemctl restart rclone-box.service
+
+================================================================================
+/home/davis/catcam_runner.sh
+================================================================================
+#!/bin/bash
+
+# Default values (in case config doesn't exist yet)
+SEGMENT_TIME=900
+SUBFOLDER="Other/CatCam"
+CAMERA_USER="admin"
+CAMERA_PASS="CoonCam19"
+CAMERA_IP="192.168.1.163"
+
+# Load config file if it exists
+CONFIG_FILE="/home/davis/catcam-web/catcam_config.env"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+    echo "Loaded configuration from $CONFIG_FILE"
+fi
+
+# Wait for Box mount
+echo "Waiting for Box mount..."
+max_attempts=60
+attempt=0
+
+while [ $attempt -lt $max_attempts ]; do
+    if mountpoint -q /home/davis/Box && [ -w /home/davis/Box ]; then
+        echo "Box mount is ready!"
+        break
+    fi
+    echo "Wait... ($((attempt + 1))/$max_attempts)"
+    sleep 2
+    attempt=$((attempt + 1))
+done
+
+if [ $attempt -eq $max_attempts ]; then
+    echo "ERROR: Box mount failed."
+    exit 1
+fi
+
+# Construct the full path
+FULL_PATH="/home/davis/Box/$SUBFOLDER"
+mkdir -p "$FULL_PATH"
+
+# Create today's directory
+TODAY_PATH="$FULL_PATH/$(date +%Y/%m/%d)"
+mkdir -p "$TODAY_PATH"
+
+echo "Recording to: $TODAY_PATH"
+echo "Segment time: $SEGMENT_TIME seconds"
+
+sleep 2
+
+# Start recording with variables
+# Note: We construct the RTSP URL using the variables
+RTSP_URL="rtsp://$CAMERA_USER:$CAMERA_PASS@$CAMERA_IP:554/h264Preview_01_main"
+FILE_TEMPLATE="$FULL_PATH/%Y/%m/%d/%p-%I-%M-%S.mp4"
+
+/usr/bin/ffmpeg -nostdin -rtsp_transport tcp -i "$RTSP_URL" -c copy -map 0 -f segment -segment_time "$SEGMENT_TIME" -strftime 1 "$FILE_TEMPLATE"
+
+================================================================================
+/home/davis/catcam-web/main.py
+================================================================================
+import os
+import subprocess
+import time
+import shutil
+import math
+from datetime import datetime
+from pathlib import Path
+from fastapi import FastAPI, Request, Form
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+
+app = FastAPI()
+templates = Jinja2Templates(directory="templates")
+
+CONFIG_FILE = Path("/home/davis/catcam-web/catcam_config.env")
+BOX_ROOT = Path("/home/davis/Box")
+
+def load_config():
+    defaults = {"SUBFOLDER": "Other/CatCam", "SEGMENT_TIME": "900", "CAMERA_IP": "192.168.1.163", "CAMERA_USER": "admin", "CAMERA_PASS": "CoonCam19"}
+    if CONFIG_FILE.exists():
+        with open(CONFIG_FILE, "r") as f:
+            for line in f:
+                if "=" in line:
+                    key, val = line.strip().split("=", 1)
+                    defaults[key] = val.strip('"')
+    return defaults
+
+def save_config_file(data):
+    with open(CONFIG_FILE, "w") as f:
+        for key, val in data.items():
+            f.write(f'{key}="{val}"\n')
+
+def get_service_status(service_name):
+    try:
+        res = subprocess.run(["systemctl", "is-active", service_name], capture_output=True, text=True)
+        return res.stdout.strip() == "active"
+    except: return False
+
+def get_cpu_temp():
+    # Reads Linux thermal zone
+    try:
+        with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
+            temp_c = int(f.read()) / 1000
+            return f"{temp_c * 9/5 + 32:.1f}Â°F"
+    except: return "--"
+
+def get_camera_ping(ip):
+    # Simple ping to check connection quality
+    try:
+        res = subprocess.run(["ping", "-c", "1", "-W", "1", ip], capture_output=True, text=True)
+        if "time=" in res.stdout:
+            # Extract time (e.g., time=4.23 ms)
+            ms = res.stdout.split("time=")[1].split(" ")[0]
+            return float(ms)
+    except: pass
+    return None
+
+def get_disk_usage():
+    total, used, free = shutil.disk_usage("/")
+    percent_used = (used / total) * 100
+    
+    cache_path = Path.home() / ".cache/rclone"
+    cache_gb = 0
+    if cache_path.exists():
+        cache_size = sum(f.stat().st_size for f in cache_path.rglob('*') if f.is_file())
+        cache_gb = cache_size / (1024**3)
+
+    return {"percent": round(percent_used, 1), "free_gb": round(free / (1024**3), 1), "cache_gb": round(cache_gb, 2)}
+
+# --- ROUTES ---
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request, "page": "dashboard"})
+
+@app.get("/api/stats")
+async def api_stats():
+    conf = load_config()
+    
+    # 1. System Vitals
+    cam_active = get_service_status("catcam.service")
+    box_active = get_service_status("rclone-box.service")
+    disk = get_disk_usage()
+    cpu_temp = get_cpu_temp()
+    ping_ms = get_camera_ping(conf["CAMERA_IP"])
+    
+    # 2. File & Timeline Logic
+    today_path = BOX_ROOT / conf["SUBFOLDER"] / datetime.now().strftime("%Y/%m/%d")
+    current_file = "Waiting..."
+    current_size = "0.00 MB"
+    status_msg = "Idle"
+    files_today = 0
+    timeline_segments = []
+    
+    if today_path.exists():
+        files = list(today_path.glob("*.mp4"))
+        files_today = len(files)
+        if files:
+            files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+            latest = files[0]
+            age = time.time() - latest.stat().st_mtime
+            current_file = latest.name
+            current_size = f"{(latest.stat().st_size / (1024*1024)):.2f} MB"
+            status_msg = "Recording (Active)" if age < 20 else f"Last write: {int(age)}s ago"
+            
+            # Build Timeline Data (Cheap metadata scan)
+            # We calculate start hour/minute from filename or mtime
+            start_of_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+            
+            for f in files:
+                # Use modification time as "end of recording"
+                end_ts = f.stat().st_mtime
+                # Guess start time based on size (approx bitrate) or just filename
+                # Simplified: Assume 15 min duration unless it's the active one
+                duration = 900
+                if f == latest and age < 20:
+                    # Calculate duration based on start time
+                    duration = end_ts - f.stat().st_ctime # rough estimate
+                    if duration < 0: duration = 60 # fallback
+                
+                start_ts = end_ts - duration
+                
+                # Normalize to 0-100% of day
+                left_pct = max(0, ((start_ts - start_of_day) / 86400) * 100)
+                width_pct = (duration / 86400) * 100
+                
+                timeline_segments.append({"left": f"{left_pct:.2f}%", "width": f"{width_pct:.2f}%"})
+
+    # Logs
+    try:
+        logs = subprocess.run(["journalctl", "-u", "catcam.service", "-n", "50", "--no-pager"], capture_output=True, text=True).stdout
+    except: logs = "Error fetching logs"
+    
+    # Uptime
+    try:
+        with open('/proc/uptime', 'r') as f:
+            uptime = f"{int(float(f.readline().split()[0]) / 3600)}h"
+    except: uptime = "?"
+
+    return JSONResponse({
+        "cam_active": cam_active, "box_active": box_active,
+        "current_file": current_file, "current_size": current_size, "status_msg": status_msg,
+        "disk": disk, "logs": logs, "files_today": files_today, "uptime": uptime,
+        "cpu_temp": cpu_temp, "ping_ms": ping_ms, "timeline": timeline_segments
+    })
+
+@app.get("/library", response_class=HTMLResponse)
+async def library(request: Request, date: str = None):
+    conf = load_config()
+    if not date: date = datetime.now().strftime("%Y-%m-%d")
+    path_date = date.replace("-", "/")
+    target_dir = BOX_ROOT / conf["SUBFOLDER"] / path_date
+    videos = []
+    if target_dir.exists():
+        for f in sorted(target_dir.glob("*.mp4")):
+            videos.append({"name": f.name, "size": f"{round(f.stat().st_size/(1024*1024),1)} MB", "path": str(f)})
+    return templates.TemplateResponse("index.html", {"request": request, "page": "library", "current_date": date, "videos": videos})
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request, "page": "settings", "config": load_config()})
+
+@app.post("/settings")
+async def save_settings(request: Request, subfolder: str = Form(...), segment_time: int = Form(...), camera_ip: str = Form(...), camera_user: str = Form(...), camera_pass: str = Form(...)):
+    data = {"SUBFOLDER": subfolder, "SEGMENT_TIME": str(segment_time), "CAMERA_IP": camera_ip, "CAMERA_USER": camera_user, "CAMERA_PASS": camera_pass}
+    save_config_file(data)
+    try:
+        subprocess.run(["sudo", "systemctl", "restart", "catcam.service"], check=True)
+        msg = "Saved & Restarted!"
+    except: msg = "Saved, but restart failed."
+    return templates.TemplateResponse("index.html", {"request": request, "page": "settings", "config": data, "message": msg})
+
+@app.get("/video_feed")
+async def video_feed():
+    conf = load_config()
+    import cv2 # Lazy import
+    url = f"rtsp://{conf['CAMERA_USER']}:{conf['CAMERA_PASS']}@{conf['CAMERA_IP']}:554/h264Preview_01_main"
+    def gen():
+        cap = cv2.VideoCapture(url)
+        while True:
+            success, frame = cap.read()
+            if not success:
+                time.sleep(2)
+                cap = cv2.VideoCapture(url)
+                continue
+            frame = cv2.resize(frame, (640, 360))
+            ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
+            yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+    return StreamingResponse(gen(), media_type="multipart/x-mixed-replace; boundary=frame")
+
+@app.get("/play_file")
+async def play_file(path: str):
+    if not path.startswith("/home/davis/Box"): return HTMLResponse("Access Denied", 403)
+    return FileResponse(path, media_type="video/mp4")
+
+================================================================================
+/home/davis/catcam-web/templates/index.html
+================================================================================
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CatCam Monitor</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: #e0e0e0; margin: 0; }
+        .nav { background: #000; padding: 15px; text-align: center; border-bottom: 1px solid #333; }
+        .nav a { color: #aaa; text-decoration: none; padding: 10px 20px; margin: 0 5px; border-radius: 5px; transition: 0.2s; }
+        .nav a:hover, .nav a.active { background: #007bff; color: white; }
+        .container { max-width: 1000px; margin: 20px auto; padding: 20px; }
+        .card { background: #252525; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #333; }
+        h2 { margin-top: 0; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+        .badge { padding: 5px 12px; border-radius: 15px; font-weight: bold; font-size: 0.85em; text-transform: uppercase; }
+        .green { background-color: #28a745; color: white; box-shadow: 0 0 10px rgba(40, 167, 69, 0.4); }
+        .red { background-color: #dc3545; color: white; box-shadow: 0 0 10px rgba(220, 53, 69, 0.4); }
+        .yellow { background-color: #ffc107; color: #000; }
+        .console { background: #000; color: #0f0; font-family: 'Courier New', monospace; padding: 15px; border-radius: 5px; height: 200px; overflow-y: auto; font-size: 12px; border: 1px solid #333; white-space: pre-wrap; }
+        input, button, select { padding: 10px; background: #333; border: 1px solid #444; color: white; border-radius: 4px; }
+        button.btn { background: #007bff; border: none; cursor: pointer; width: 100%; color: white; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .stat-val { font-size: 1.5em; font-weight: bold; margin: 5px 0; }
+        .disk-bg { background: #444; height: 20px; border-radius: 10px; overflow: hidden; margin-top: 5px; }
+        .disk-fill { height: 100%; width: 0%; transition: width 0.5s; }
+        input[type="text"], input[type="number"] { width: 100%; box-sizing: border-box; margin-bottom: 10px; }
+        
+        /* Timeline Styles */
+        .timeline-container { margin-top: 10px; background: #333; height: 30px; width: 100%; position: relative; border-radius: 4px; overflow: hidden; }
+        .timeline-segment { position: absolute; height: 100%; background: #28a745; opacity: 0.8; border-right: 1px solid #1a1a1a; }
+        .timeline-markers { display: flex; justify-content: space-between; color: #888; font-size: 0.7em; margin-top: 2px; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="/" class="{% if page == 'dashboard' %}active{% endif %}">Live Dashboard</a>
+        <a href="/library" class="{% if page == 'library' %}active{% endif %}">Library</a>
+        <a href="/settings" class="{% if page == 'settings' %}active{% endif %}">Settings</a>
+    </div>
+
+    <div class="container">
+        {% if page == 'dashboard' %}
+        <div class="card">
+            <h2>ðŸ"´ Live Feed <span id="clock" style="font-size:0.6em; color:#888;"></span></h2>
+            <img src="/video_feed" style="width: 100%; border-radius: 5px; border: 1px solid #444;">
+        </div>
+
+        <div class="stats-grid">
+            <div class="card">
+                <h2>System Health</h2>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>Camera:</span><span id="cam-status" class="badge red">...</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>Box Mount:</span><span id="box-status" class="badge red">...</span>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; padding-top: 10px; border-top: 1px solid #444;">
+                     <div>
+                        <div style="font-size: 0.8em; color: #aaa;">CPU Temp</div>
+                        <div id="cpu-temp" style="font-weight: bold;">--Â°F</div>
+                     </div>
+                     <div>
+                        <div style="font-size: 0.8em; color: #aaa;">Cam Latency</div>
+                        <div id="ping-ms" style="font-weight: bold;">-- ms</div>
+                     </div>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Disk:</span><span id="disk-text" style="font-weight: bold;">...</span>
+                    </div>
+                    <div class="disk-bg"><div id="disk-bar" class="disk-fill"></div></div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Active Recording</h2>
+                <div style="display: flex; justify-content: space-between;">
+                     <span>Status:</span><span id="write-status" class="badge yellow">...</span>
+                </div>
+                <div style="margin-top: 10px;">
+                    <div style="font-size: 0.9em; color: #aaa;">Current File:</div>
+                    <div id="curr-file" style="font-weight: bold;">...</div>
+                    <div style="font-size: 0.9em; color: #aaa; margin-top: 5px;">Size:</div>
+                    <div id="curr-size" class="stat-val" style="color: #28a745;">0.00 MB</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>ðŸ"… 24-Hour Timeline (Today)</h2>
+            <div style="font-size: 0.8em; color: #aaa; margin-bottom: 5px;">Green blocks = Recorded Video. Black gaps = Missing footage.</div>
+            <div id="timeline" class="timeline-container">
+                </div>
+            <div class="timeline-markers">
+                <span>12 AM</span><span>4 AM</span><span>8 AM</span><span>12 PM</span><span>4 PM</span><span>8 PM</span><span>11:59 PM</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>ðŸ'» Logs</h2>
+            <div id="console" class="console">Loading...</div>
+        </div>
+
+        <script>
+            function updateStats() {
+                fetch('/api/stats?t=' + new Date().getTime())
+                .then(r => r.json())
+                .then(data => {
+                    // Status
+                    document.getElementById('cam-status').className = data.cam_active ? 'badge green' : 'badge red';
+                    document.getElementById('cam-status').innerText = data.cam_active ? 'ONLINE' : 'OFFLINE';
+                    document.getElementById('box-status').className = data.box_active ? 'badge green' : 'badge red';
+                    document.getElementById('box-status').innerText = data.box_active ? 'MOUNTED' : 'ERROR';
+                    
+                    // Recording
+                    const write = document.getElementById('write-status');
+                    write.className = data.status_msg === 'Recording (Active)' ? 'badge green' : 'badge yellow';
+                    write.innerText = data.status_msg;
+                    document.getElementById('curr-file').innerText = data.current_file;
+                    document.getElementById('curr-size').innerText = data.current_size;
+
+                    // Vitals
+                    document.getElementById('cpu-temp').innerText = data.cpu_temp;
+                    const pingEl = document.getElementById('ping-ms');
+                    if (data.ping_ms) {
+                        pingEl.innerText = data.ping_ms + ' ms';
+                        pingEl.style.color = data.ping_ms > 100 ? '#dc3545' : '#28a745';
+                    } else {
+                        pingEl.innerText = 'Timeout';
+                        pingEl.style.color = '#dc3545';
+                    }
+
+                    // Disk
+                    const diskBar = document.getElementById('disk-bar');
+                    document.getElementById('disk-text').innerText = data.disk.percent + "% (" + data.disk.free_gb + " GB free)";
+                    diskBar.style.width = data.disk.percent + "%";
+                    diskBar.style.background = data.disk.percent > 90 ? '#dc3545' : '#28a745';
+
+                    // Logs
+                    const c = document.getElementById('console');
+                    if(c.scrollTop + c.clientHeight >= c.scrollHeight - 50) {
+                        c.innerText = data.logs;
+                        c.scrollTop = c.scrollHeight;
+                    } else { c.innerText = data.logs; }
+                    
+                    // Render Timeline
+                    const tl = document.getElementById('timeline');
+                    tl.innerHTML = data.timeline.map(seg => 
+                        `<div class="timeline-segment" style="left: ${seg.left}; width: ${seg.width};"></div>`
+                    ).join('');
+                });
+                document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+            }
+            setInterval(updateStats, 2000);
+            updateStats();
+        </script>
+        {% endif %}
+        
+        {% if page == 'library' %}
+        <div class="card">
+            <h2>ðŸ"‚ Video Library</h2>
+            <form action="/library" method="get" style="margin-bottom: 20px;">
+                <input type="date" name="date" value="{{ current_date }}" required style="width: auto;">
+                <button type="submit" class="btn" style="width: auto; padding: 5px 20px;">Go</button>
+            </form>
+            <ul style="list-style: none; padding: 0;">
+                {% for vid in videos %}
+                <li style="padding: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between;">
+                    <span>ðŸ"„ {{ vid.name }} <small style="color: #888;">({{ vid.size }})</small></span>
+                    <a href="/play_file?path={{ vid.path }}" target="_blank" style="color: #007bff; text-decoration: none;">â–¶ Play</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if page == 'settings' %}
+        <div class="card">
+            <h2>âš™ï¸ Settings</h2>
+            {% if message %}<div style="background: #28a745; color: white; padding: 10px; border-radius: 5px; margin-bottom: 15px;">{{ message }}</div>{% endif %}
+            <form action="/settings" method="post">
+                <label>Subfolder:</label> <input type="text" name="subfolder" value="{{ config.SUBFOLDER }}">
+                <label>Segment (sec):</label> <input type="number" name="segment_time" value="{{ config.SEGMENT_TIME }}">
+                <h3>Camera</h3>
+                <label>IP:</label> <input type="text" name="camera_ip" value="{{ config.CAMERA_IP }}">
+                <label>User:</label> <input type="text" name="camera_user" value="{{ config.CAMERA_USER }}">
+                <label>Pass:</label> <input type="password" name="camera_pass" value="{{ config.CAMERA_PASS }}">
+                <button type="submit" class="btn" style="margin-top: 10px;">Save & Restart</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
+
+================================================================================
+/home/davis/catcam-web/catcam_config.env
+================================================================================
+SUBFOLDER="Other/CatCam"
+SEGMENT_TIME="1800"
+CAMERA_IP="192.168.1.163"
+CAMERA_USER="admin"
+CAMERA_PASS="CoonCam19"
+
+================================================================================
+EOF - End of File Dump
+================================================================================

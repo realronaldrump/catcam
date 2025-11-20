@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  catcam:
+    image: ghcr.io/YOUR_GITHUB_USERNAME/catcam:latest
+    container_name: catcam
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - /home/davis/Box:/data/Box
+    environment:
+      - TZ=America/Chicago
+      # These can be overridden by a .env file on the server
+      - CAMERA_IP=${CAMERA_IP:-192.168.1.163}
+      - CAMERA_USER=${CAMERA_USER:-admin}
+      - CAMERA_PASS=${CAMERA_PASS:-CoonCam19}
+      - SUBFOLDER=${SUBFOLDER:-Other/CatCam}
+      - SEGMENT_TIME=${SEGMENT_TIME:-900}
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 30 --cleanup
