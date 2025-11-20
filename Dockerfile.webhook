@@ -1,4 +1,11 @@
 FROM almir/webhook:latest
 
-# Install Docker CLI and Git
-RUN apk add --no-cache docker-cli git bash
+# 1. Switch to root to allow package installation
+USER root
+
+# 2. Install Docker CLI, the Compose plugin, Git, and Bash
+RUN apk add --no-cache docker-cli docker-cli-compose git bash
+
+# (Optional) Switch back to the default user if you want, 
+# but running as root inside this specific container is often easier 
+# for accessing the docker socket.
