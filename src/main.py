@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from config import Config
+from .config import Config
 
 app = FastAPI()
 templates = Jinja2Templates(directory="src/templates")

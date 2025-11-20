@@ -7,7 +7,10 @@
       "match": {
         "type": "payload-hash-sha1",
         "secret": "MY_SECRET_TOKEN",
-        "parameter": "X-Hub-Signature"
+        "parameter": {
+          "source": "header",
+          "name": "X-Hub-Signature"
+        }
       }
     }
   }
