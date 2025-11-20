@@ -1,0 +1,14 @@
+[
+  {
+    "id": "deploy",
+    "execute-command": "/var/scripts/deploy.sh",
+    "command-working-directory": "/app",
+    "trigger-rule": {
+      "match": {
+        "type": "payload-hash-sha1",
+        "secret": "MY_SECRET_TOKEN",
+        "parameter": "X-Hub-Signature"
+      }
+    }
+  }
+]

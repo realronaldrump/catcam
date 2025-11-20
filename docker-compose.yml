@@ -1,24 +1,45 @@
-version: '3.8'
 services:
-  catcam:
-    image: ghcr.io/realronaldrump/catcam:latest
-    container_name: catcam-service
-    restart: always
-    network_mode: "host"
+  web:
+    build: .
+    container_name: catcam_web
+    command: uvicorn src.main:app --host 0.0.0.0 --port 2121
+    ports:
+      - "2121:2121"
     volumes:
-      - /home/davis/Box:/data/Box
+      - /home/davis/Box:/data/box
+      - ./src:/app/src
+      - /sys/class/thermal:/sys/class/thermal:ro
+      - catcam_config:/config
+    restart: unless-stopped
     environment:
       - TZ=America/Chicago
-      - CAMERA_IP=${CAMERA_IP:-192.168.1.163}
-      - CAMERA_USER=${CAMERA_USER:-admin}
-      - CAMERA_PASS=${CAMERA_PASS:-CoonCam19}
-      - SUBFOLDER=${SUBFOLDER:-Other/CatCam}
-      - SEGMENT_TIME=${SEGMENT_TIME:-900}
 
-  watchtower:
-    image: containrrr/watchtower
-    container_name: catcam-watchtower
-    restart: always
+  recorder:
+    build: .
+    container_name: catcam_recorder
+    command: python src/recorder.py
     volumes:
+      - /home/davis/Box:/data/box
+      - ./src:/app/src
+      - catcam_config:/config
+    restart: unless-stopped
+    environment:
+      - TZ=America/Chicago
+
+  webhook:
+    build:
+      context: .
+      dockerfile: Dockerfile.webhook
+    container_name: catcam_webhook
+    command: -verbose -hooks=/etc/webhook/hooks.json -hotreload
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./webhook.json:/etc/webhook/hooks.json
+      - ./scripts:/var/scripts
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 30 --cleanup
+      - ./:/app
+    restart: unless-stopped
+
+volumes:
+  catcam_config:

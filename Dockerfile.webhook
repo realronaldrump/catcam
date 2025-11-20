@@ -1,0 +1,4 @@
+FROM adnanh/webhook:alpine
+
+# Install Docker CLI and Git
+RUN apk add --no-cache docker-cli git bash

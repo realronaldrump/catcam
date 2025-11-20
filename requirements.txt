@@ -1,5 +1,6 @@
 fastapi
 uvicorn
 jinja2
-requests
 opencv-python-headless
+requests
+python-multipart
