@@ -369,17 +369,35 @@
                 <input type="date" name="date" value="{{ current_date }}" required style="width: auto;">
                 <button type="submit" class="btn" style="width: auto; padding: 5px 20px;">Go</button>
             </form>
-            <ul style="list-style: none; padding: 0;">
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;">
                 {% for vid in videos %}
-                <li
-                    style="padding: 10px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between;">
-                    <span>🎬 {{ vid.name }} <small style="color: var(--text-muted);">({{ vid.size }})</small></span>
-                    <a href="/play_file/{{ vid.path }}" target="_blank"
-                        style="color: var(--nav-hover-bg); text-decoration: none;">▶
-                        Play</a>
-                </li>
+                <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: var(--input-bg); transition: transform 0.2s; cursor: pointer;"
+                    onmouseover="this.style.transform='translateY(-2px)'"
+                    onmouseout="this.style.transform='translateY(0)'">
+                    <a href="/play_file/{{ vid.path }}" target="_blank" style="text-decoration: none; color: inherit;">
+                        {% if vid.thumb %}
+                        <img src="/thumb/{{ vid.thumb }}"
+                            style="width: 100%; height: 160px; object-fit: cover; display: block;">
+                        {% else %}
+                        <div
+                            style="width: 100%; height: 160px; background: var(--border-color); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 2em;">
+                            🎬
+                        </div>
+                        {% endif %}
+                        <div style="padding: 12px;">
+                            <div style="font-weight: bold; margin-bottom: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                title="{{ vid.name }}">{{ vid.name }}</div>
+                            <div style="font-size: 0.85em; color: var(--text-muted);">{{ vid.size }}</div>
+                        </div>
+                    </a>
+                </div>
                 {% endfor %}
-            </ul>
+            </div>
+
+            {% if not videos %}
+            <p style="text-align: center; color: var(--text-muted); padding: 40px;">No videos found for this date.</p>
+            {% endif %}
         </div>
         {% endif %}
 

@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import time
 import subprocess
@@ -15,6 +16,18 @@ from .config import Config
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# --- Security Helpers ---
+
+def validate_date_param(date_str: str) -> bool:
+    """Validates date parameter matches YYYY-MM-DD format and is a valid date."""
+    if not re.match(r'^\d{4}-\d{2}-\d{2}$', date_str):
+        return False
+    try:
+        datetime.strptime(date_str, '%Y-%m-%d')
+        return True
+    except ValueError:
+        return False
 
 app = FastAPI()
 templates = Jinja2Templates(directory="src/templates")
@@ -228,19 +241,39 @@ async def api_stats():
 @app.get("/library", response_class=HTMLResponse)
 async def library(request: Request, date: str = None):
     conf = Config.load()
-    if not date: date = datetime.now().strftime("%Y-%m-%d")
+    if not date: 
+        date = datetime.now().strftime("%Y-%m-%d")
+    
+    # SECURITY FIX: Validate date format to prevent directory traversal
+    if not validate_date_param(date):
+        return HTMLResponse("Invalid date parameter", 400)
+    
     path_date = date.replace("-", "/")
     target_dir = Config.BOX_ROOT / conf["SUBFOLDER"] / path_date
+    
+    # Additional safety check: ensure resolved path is within expected base
+    try:
+        resolved = target_dir.resolve()
+        expected_base = (Config.BOX_ROOT / conf["SUBFOLDER"]).resolve()
+        if not str(resolved).startswith(str(expected_base)):
+            return HTMLResponse("Access Denied", 403)
+    except Exception:
+        return HTMLResponse("Invalid path", 400)
+    
     videos = []
     if target_dir.exists():
         for f in sorted(target_dir.glob("*.mp4")):
             # Create a relative path for the player
             try:
                 rel_path = f.relative_to(Config.BOX_ROOT)
+                thumb_path = f.with_suffix('.thumb.jpg')
+                thumb_rel = thumb_path.relative_to(Config.BOX_ROOT) if thumb_path.exists() else None
+                
                 videos.append({
                     "name": f.name, 
                     "size": f"{round(f.stat().st_size/(1024*1024),1)} MB", 
-                    "path": str(rel_path)
+                    "path": str(rel_path),
+                    "thumb": str(thumb_rel) if thumb_rel else None
                 })
             except ValueError:
                 pass # Should not happen if BOX_ROOT is correct
@@ -313,3 +346,13 @@ async def play_file(file_path: str):
     if not safe_path.exists():
         return HTMLResponse("File not found", 404)
     return FileResponse(safe_path, media_type="video/mp4")
+
+@app.get("/thumb/{file_path:path}")
+async def serve_thumbnail(file_path: str):
+    """Securely serve thumbnail images from BOX_ROOT."""
+    safe_path = (Config.BOX_ROOT / file_path).resolve()
+    if not str(safe_path).startswith(str(Config.BOX_ROOT.resolve())):
+        return HTMLResponse("Access Denied", 403)
+    if not safe_path.exists():
+        return HTMLResponse("Thumbnail not found", 404)
+    return FileResponse(safe_path, media_type="image/jpeg")
