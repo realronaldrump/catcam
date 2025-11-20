@@ -1,5 +1,4 @@
 version: '3.8'
-
 services:
   catcam:
     image: ghcr.io/realronaldrump/catcam:latest
@@ -10,7 +9,6 @@ services:
       - /home/davis/Box:/data/Box
     environment:
       - TZ=America/Chicago
-      # These can be overridden by a .env file on the server
       - CAMERA_IP=${CAMERA_IP:-192.168.1.163}
       - CAMERA_USER=${CAMERA_USER:-admin}
       - CAMERA_PASS=${CAMERA_PASS:-CoonCam19}
