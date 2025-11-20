@@ -14,6 +14,6 @@ jobs:
           curl -X POST \
             -H "Content-Type: application/json" \
             -H "X-Hub-Signature: sha1=$(echo -n \"$SECRET\" | openssl sha1 -hmac \"$SECRET\" | sed 's/^.* //')" \
-            http://${{ secrets.CATCAM_HOST }}:9000/hooks/deploy
+            "http://${{ secrets.CATCAM_HOST }}:9000/hooks/deploy"
         env:
           SECRET: ${{ secrets.WEBHOOK_SECRET }}
