@@ -6,9 +6,13 @@ echo "Received deployment trigger..."
 # Navigate to app dir (mounted at /app)
 cd /app
 
-# Pull latest changes
+# Configure git to handle pulls
+git config pull.rebase false
+
+# Pull latest changes (force if needed)
 echo "Pulling from git..."
-git pull origin main
+git fetch origin
+git reset --hard origin/main
 
 # Rebuild and restart containers
 echo "Rebuilding and restarting containers..."
