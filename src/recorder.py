@@ -50,6 +50,7 @@ def record_stream():
                 "ffmpeg",
                 "-nostdin",
                 "-rtsp_transport", "tcp",
+                "-stimeout", "5000000",  # 5s timeout for socket operations
                 "-i", rtsp_url,
                 "-c", "copy",
                 "-map", "0",
@@ -60,7 +61,9 @@ def record_stream():
             ]
 
             # Run FFmpeg
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # We don't capture stdout/stderr so they go to the Docker logs directly.
+            # This also prevents buffer deadlocks which can cause FFmpeg to hang.
+            process = subprocess.Popen(cmd)
             print(f"FFmpeg started with PID {process.pid}")
             process.wait()
             
