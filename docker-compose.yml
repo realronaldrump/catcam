@@ -3,7 +3,7 @@ version: '3.8'
 services:
   catcam:
     image: ghcr.io/realronaldrump/catcam:latest
-    container_name: catcam
+    container_name: catcam-service
     restart: always
     ports:
       - "8000:8000"
@@ -20,7 +20,7 @@ services:
 
   watchtower:
     image: containrrr/watchtower
-    container_name: watchtower
+    container_name: catcam-watchtower
     restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
