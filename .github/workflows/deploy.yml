@@ -11,9 +11,11 @@ jobs:
     steps:
       - name: Trigger Webhook
         run: |
+          # Strip any protocol prefix from CATCAM_HOST
+          CLEAN_HOST=$(echo "${{ secrets.CATCAM_HOST }}" | sed 's|^https\?://||')
           curl -X POST \
             -H "Content-Type: application/json" \
             -H "X-Hub-Signature: sha1=$(echo -n \"$SECRET\" | openssl sha1 -hmac \"$SECRET\" | sed 's/^.* //')" \
-            "http://${{ secrets.CATCAM_HOST }}:9000/hooks/deploy"
+            "http://${CLEAN_HOST}:9000/hooks/deploy"
         env:
           SECRET: ${{ secrets.WEBHOOK_SECRET }}

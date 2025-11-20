@@ -2,7 +2,7 @@ services:
   web:
     build: .
     container_name: catcam_web
-    command: uvicorn src.main:app --host 0.0.0.0 --port 2121
+    command: uvicorn src.main:app --host 0.0.0.0 --port 2121 --proxy-headers --forwarded-allow-ips='*'
     ports:
       - "2121:2121"
     volumes:
