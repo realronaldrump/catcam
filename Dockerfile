@@ -29,7 +29,7 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 RUN mkdir -p /data/Box
 
 # Expose port
-EXPOSE 8000
+EXPOSE 2121
 
 # Start supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
