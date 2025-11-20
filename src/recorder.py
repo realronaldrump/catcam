@@ -50,7 +50,7 @@ def record_stream():
                 "ffmpeg",
                 "-nostdin",
                 "-rtsp_transport", "tcp",
-                "-stimeout", "5000000",  # 5s timeout for socket operations
+                "-timeout", "5000000",  # 5s timeout for socket operations (microsecond)
                 "-i", rtsp_url,
                 "-c", "copy",
                 "-map", "0",
