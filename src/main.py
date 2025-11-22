@@ -92,10 +92,10 @@ camera = VideoCamera()
 # --- Helpers ---
 
 def get_disk_usage():
-    """Checks usage of the Box mount."""
+    """Checks disk usage of the mini PC's root filesystem."""
     try:
-        # Ensure we use the correct path from Config, which should match Docker mount
-        total, used, free = shutil.disk_usage(Config.BOX_ROOT)
+        # Measure the mini PC's root filesystem to ensure videos aren't filling up local disk
+        total, used, free = shutil.disk_usage("/")
         percent_used = (used / total) * 100
         return {"percent": round(percent_used, 1), "free_gb": round(free / (1024**3), 1)}
     except Exception:
