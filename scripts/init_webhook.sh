@@ -1,8 +1,10 @@
 #!/bin/bash
 set -e
 
-# UPDATED: Point to the file in the /app mount (from host) 
-# instead of /etc/webhook to avoid Docker Volume masking issues.
+# Define paths
+# CRITICAL FIX: Use the file from the /app mount (host directory) as the source.
+# The previous method (copying to /etc/webhook inside Dockerfile) failed because 
+# the base image declares /etc/webhook as a VOLUME, masking the copied file.
 TEMPLATE="/app/webhook.json"
 CONFIG="/etc/webhook/hooks.json"
 
