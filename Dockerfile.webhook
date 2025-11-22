@@ -1,11 +1,21 @@
 FROM almir/webhook:latest
 
-# 1. Switch to root to allow package installation
+# Switch to root to install dependencies
 USER root
 
-# 2. Install Docker CLI, the Compose plugin, Git, and Bash
+# Install Docker CLI, Compose, Git, Bash
 RUN apk add --no-cache docker-cli docker-cli-compose git bash
 
-# (Optional) Switch back to the default user if you want, 
-# but running as root inside this specific container is often easier 
-# for accessing the docker socket.
+# Copy the webhook configuration as a TEMPLATE (not the final file)
+COPY webhook.json /etc/webhook/hooks.json.template
+
+# Copy the initialization script
+COPY scripts/init_webhook.sh /usr/local/bin/init_webhook.sh
+RUN chmod +x /usr/local/bin/init_webhook.sh
+
+# Set the entrypoint to our script
+ENTRYPOINT ["/usr/local/bin/init_webhook.sh"]
+
+# Default arguments passed to the entrypoint
+# Note: We point to /etc/webhook/hooks.json which the script generates
+CMD ["-verbose", "-hooks=/etc/webhook/hooks.json", "-hotreload"]

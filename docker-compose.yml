@@ -31,16 +31,20 @@ services:
       context: .
       dockerfile: Dockerfile.webhook
     container_name: catcam_webhook
+    # These arguments are passed to your new entrypoint script
     command: -verbose -hooks=/etc/webhook/hooks.json -hotreload
     ports:
       - "9000:9000"
     volumes:
-      - ./webhook.json:/etc/webhook/hooks.json
+      # NOTE: specific webhook.json mount removed so the entrypoint script can generate it dynamically
       - ./scripts:/var/scripts
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/app
       - ~/.ssh:/root/.ssh:ro # Mount SSH keys for git fetch
     restart: unless-stopped
+    environment:
+      # This passes the secret from your server's .env file into the container
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
 
 volumes:
   catcam_config:

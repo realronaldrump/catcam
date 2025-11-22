@@ -322,7 +322,14 @@ async def save_settings(request: Request,
             f.write(f'{key}="{val}"\n')
             
     msg = "Settings saved! Services will restart shortly."
-    return templates.TemplateResponse("index.html", {"request": request, "page": "settings", "config": data, "message": msg})
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "page": "settings", 
+        "config": data, 
+        "message": msg,
+        "segment_minutes": segment_minutes,
+        "segment_seconds": segment_seconds
+    })
 
 @app.get("/video_feed")
 async def video_feed():

@@ -2,6 +2,7 @@ import time
 import subprocess
 import sys
 import os
+import threading
 from datetime import datetime, timedelta
 from pathlib import Path
 from config import Config
@@ -26,13 +27,20 @@ def ensure_directories():
     today_path.mkdir(parents=True, exist_ok=True)
     return today_path, conf
 
-def generate_thumbnail(video_path: Path):
-    """Generates thumbnail from first frame of video."""
+def generate_thumbnail(video_path: Path) -> bool:
+    """
+    Generates thumbnail from first frame of video.
+    Returns True if thumbnail exists or was successfully created.
+    Returns False if generation failed.
+    """
     thumb_path = video_path.with_suffix('.thumb.jpg')
+    
+    # If it already exists, we consider it a success
     if thumb_path.exists():
-        return  # Already exists
+        return True
     
     try:
+        # Run ffmpeg to extract one frame
         subprocess.run([
             'ffmpeg', '-nostdin',
             '-i', str(video_path),
@@ -40,14 +48,25 @@ def generate_thumbnail(video_path: Path):
             '-q:v', '2',
             '-y',
             str(thumb_path)
-        ], capture_output=True, check=True, timeout=10)
+        ], capture_output=True, check=True, timeout=15)
+        
         print(f"Generated thumbnail: {thumb_path.name}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"FFmpeg failed for {video_path.name}: {e.stderr.decode().strip()}")
+        return False
     except Exception as e:
         print(f"Failed to generate thumbnail for {video_path.name}: {e}")
+        return False
 
 def thumbnail_watcher():
-    """Background thread to watch for new videos and generate thumbnails."""
+    """
+    Background thread to watch for new videos and generate thumbnails.
+    Fixes previous race condition by ensuring files are stable before processing.
+    """
     seen_files = set()
+    
+    print("Thumbnail watcher started.")
     
     while True:
         try:
@@ -55,14 +74,32 @@ def thumbnail_watcher():
             today_path = Config.BOX_ROOT / conf["SUBFOLDER"] / datetime.now().strftime("%Y/%m/%d")
             
             if today_path.exists():
-                for video in today_path.glob("*.mp4"):
-                    if video not in seen_files:
+                # List all mp4 files
+                files = list(today_path.glob("*.mp4"))
+                
+                for video in files:
+                    # Skip if we've already successfully processed this file
+                    if video in seen_files:
+                        continue
+
+                    # STABILITY CHECK:
+                    # Skip files modified in the last 15 seconds.
+                    # This ensures we don't try to read a file currently being written by the recorder.
+                    try:
+                        last_modified = video.stat().st_mtime
+                        if (time.time() - last_modified) < 15:
+                            continue
+                    except FileNotFoundError:
+                        # File might have been deleted during iteration
+                        continue
+
+                    # Attempt generation synchronously to avoid spawning too many threads
+                    # and to ensure we know if it succeeded.
+                    if generate_thumbnail(video):
                         seen_files.add(video)
-                        # Generate thumbnail in background
-                        import threading
-                        threading.Thread(target=generate_thumbnail, args=(video,), daemon=True).start()
             
             time.sleep(10)  # Check every 10 seconds
+            
         except Exception as e:
             print(f"Thumbnail watcher error: {e}")
             time.sleep(30)
@@ -80,11 +117,9 @@ def record_stream():
         print("ERROR: Box mount failed or timed out.")
         sys.exit(1)
 
-    # Start thumbnail generation watcher
-    import threading
+    # Start thumbnail generation watcher in a background thread
     thumb_thread = threading.Thread(target=thumbnail_watcher, daemon=True)
     thumb_thread.start()
-    print("Thumbnail watcher started.")
 
     # Track last config mtime to detect changes
     last_config_mtime = 0

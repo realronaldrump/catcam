@@ -9,13 +9,38 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Webhook
-        run: |
-          # Strip any protocol prefix from CATCAM_HOST
-          CLEAN_HOST=$(echo "${{ secrets.CATCAM_HOST }}" | sed 's|^https\?://||')
-          curl -X POST \
-            -H "Content-Type: application/json" \
-            -H "X-Hub-Signature: sha1=$(echo -n \"$SECRET\" | openssl sha1 -hmac \"$SECRET\" | sed 's/^.* //')" \
-            "http://${CLEAN_HOST}:9000/hooks/deploy"
+      - name: Trigger Deployment Webhook
         env:
+          # Ensure these secrets are set in your GitHub Repo Settings
           SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          HOST: ${{ secrets.CATCAM_HOST }}
+        run: |
+          # 1. Clean the host variable (remove http/https prefix if accidentally included)
+          CLEAN_HOST=$(echo "$HOST" | sed -E 's|^https?://||')
+          
+          # 2. Define the payload (Empty JSON object is standard for triggers)
+          PAYLOAD="{}"
+          
+          # 3. Calculate HMAC-SHA1 Signature
+          # We use 'echo -n' to ensure no newline characters alter the hash.
+          # We pipe into openssl, then use awk to grab the hash from the output string.
+          SIG_HASH=$(echo -n "$PAYLOAD" | openssl dgst -sha1 -hmac "$SECRET" | awk '{print $2}')
+          
+          echo "Target Host: $CLEAN_HOST"
+          echo "Generating signature..."
+          
+          # 4. Send the Request
+          # We construct the header 'X-Hub-Signature: sha1=HASH' to match webhook.json requirements
+          response_code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "http://${CLEAN_HOST}:9000/hooks/deploy" \
+            -H "Content-Type: application/json" \
+            -H "X-Hub-Signature: sha1=${SIG_HASH}" \
+            -d "$PAYLOAD")
+          
+          # 5. Validate Response
+          if [ "$response_code" -eq 200 ]; then
+            echo "✅ Success: Deployment triggered (HTTP 200)"
+          else
+            echo "❌ Error: Deployment failed with HTTP status $response_code"
+            exit 1
+          fi
