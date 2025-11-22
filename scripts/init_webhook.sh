@@ -1,14 +1,22 @@
 #!/bin/bash
 set -e
 
-# Define paths
-TEMPLATE="/etc/webhook/hooks.json.template"
+# UPDATED: Point to the file in the /app mount (from host) 
+# instead of /etc/webhook to avoid Docker Volume masking issues.
+TEMPLATE="/app/webhook.json"
 CONFIG="/etc/webhook/hooks.json"
 
 echo "⚙️  Initializing Webhook..."
 
 if [ -z "$WEBHOOK_SECRET" ]; then
     echo "❌ Error: WEBHOOK_SECRET environment variable is missing!"
+    exit 1
+fi
+
+# Verify template exists before attempting to read it
+if [ ! -f "$TEMPLATE" ]; then
+    echo "❌ Error: Template file not found at $TEMPLATE"
+    echo "   Ensure the host directory is mounted to /app in docker-compose.yml"
     exit 1
 fi
 
