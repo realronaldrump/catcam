@@ -3,8 +3,15 @@ from pathlib import Path
 
 class Config:
     # Storage
+    # Storage
     BOX_ROOT = Path("/data/box")
-    CONFIG_DIR = Path("/config")
+    
+    # Use /config if it exists (Docker), otherwise use local ./config
+    if Path("/config").exists():
+        CONFIG_DIR = Path("/config")
+    else:
+        CONFIG_DIR = Path("config")
+        
     SETTINGS_FILE = CONFIG_DIR / "settings.env"
 
     @classmethod
