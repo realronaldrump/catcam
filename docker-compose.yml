@@ -26,6 +26,18 @@ services:
     environment:
       - TZ=America/Chicago
 
+  timelapser:
+    build: .
+    container_name: catcam_timelapser
+    command: python -m src.timelapse
+    volumes:
+      - /home/davis/Box:/data/box
+      - ./src:/app/src
+      - catcam_config:/config
+    restart: unless-stopped
+    environment:
+      - TZ=America/Chicago
+
   webhook:
     build:
       context: .

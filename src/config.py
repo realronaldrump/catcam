@@ -23,6 +23,7 @@ class Config:
             "CAMERA_IP": os.getenv("CAMERA_IP", "192.168.1.163"),
             "CAMERA_USER": os.getenv("CAMERA_USER", "admin"),
             "CAMERA_PASS": os.getenv("CAMERA_PASS", "CoonCam19"),
+            "TIMELAPSE_OUTPUT_DIR": os.getenv("TIMELAPSE_OUTPUT_DIR", "Timelapses"),
         }
         
         if cls.SETTINGS_FILE.exists():

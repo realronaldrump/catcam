@@ -7,11 +7,12 @@ import threading
 import logging
 from datetime import datetime
 from pathlib import Path
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from .config import Config
+from .timelapse import generate_timelapse
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -363,3 +364,49 @@ async def serve_thumbnail(file_path: str):
     if not safe_path.exists():
         return HTMLResponse("Thumbnail not found", 404)
     return FileResponse(safe_path, media_type="image/jpeg")
+
+@app.get("/timelapses", response_class=HTMLResponse)
+async def timelapses(request: Request):
+    conf = Config.load()
+    output_dir = Config.BOX_ROOT / conf["SUBFOLDER"] / conf["TIMELAPSE_OUTPUT_DIR"]
+    
+    videos = []
+    if output_dir.exists():
+        for f in sorted(output_dir.glob("*.mp4"), reverse=True): # Newest first
+            try:
+                rel_path = f.relative_to(Config.BOX_ROOT)
+                # Timelapses don't have thumbnails generated yet, but we could add that later.
+                # For now, we'll just show the video link.
+                
+                videos.append({
+                    "name": f.name, 
+                    "size": f"{round(f.stat().st_size/(1024*1024),1)} MB", 
+                    "path": str(rel_path),
+                    "thumb": None # Placeholder
+                })
+            except ValueError:
+                pass
+
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "page": "timelapses", 
+        "videos": videos,
+        "today": datetime.now().strftime("%Y-%m-%d")
+    })
+
+@app.post("/api/generate_timelapse")
+async def api_generate_timelapse(background_tasks: BackgroundTasks, date: str = Form(...), force: bool = Form(False)):
+    # Validate date
+    if not validate_date_param(date):
+        return JSONResponse({"success": False, "message": "Invalid date format"}, status_code=400)
+    
+    target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    
+    # Prevent future dates
+    if target_date >= datetime.now().date():
+        return JSONResponse({"success": False, "message": "Cannot generate timelapse for today or future dates."}, status_code=400)
+
+    # Add to background tasks
+    background_tasks.add_task(generate_timelapse, target_date=target_date, force=force)
+    
+    return JSONResponse({"success": True, "message": f"Timelapse generation started for {date}. Check back in a few minutes."})

@@ -231,6 +231,7 @@
     <div class="nav">
         <a href="/" class="{% if page == 'dashboard' %}active{% endif %}">Live Dashboard</a>
         <a href="/library" class="{% if page == 'library' %}active{% endif %}">Library</a>
+        <a href="/timelapses" class="{% if page == 'timelapses' %}active{% endif %}">Timelapses</a>
         <a href="/settings" class="{% if page == 'settings' %}active{% endif %}">Settings</a>
         <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
     </div>
@@ -397,6 +398,82 @@
 
             {% if not videos %}
             <p style="text-align: center; color: var(--text-muted); padding: 40px;">No videos found for this date.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if page == 'timelapses' %}
+        <div class="card">
+            <h2>⏱️ Timelapse Generator</h2>
+            <div id="tl-msg" style="display:none; padding: 10px; border-radius: 5px; margin-bottom: 15px;"></div>
+
+            <form id="tl-form" onsubmit="triggerTimelapse(event)"
+                style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="display: block; margin-bottom: 5px;">Date:</label>
+                    <input type="date" name="date" max="{{ today }}" required style="margin-bottom: 0;">
+                </div>
+                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <input type="checkbox" name="force" id="force" style="width: auto; margin-right: 5px;">
+                    <label for="force" style="cursor: pointer;">Force Re-generate</label>
+                </div>
+                <button type="submit" class="btn" style="width: auto; padding: 10px 20px;">Generate</button>
+            </form>
+            <script>
+                function triggerTimelapse(e) {
+                    e.preventDefault();
+                    const form = e.target;
+                    const formData = new FormData(form);
+                    const msgDiv = document.getElementById('tl-msg');
+
+                    // Add force boolean manually if needed, but FormData handles checkbox presence usually
+                    // Checkbox only sends 'on' if checked, or nothing. FastAPI Form(False) handles missing.
+
+                    fetch('/api/generate_timelapse', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(r => r.json())
+                        .then(data => {
+                            msgDiv.style.display = 'block';
+                            msgDiv.style.background = data.success ? '#28a745' : '#dc3545';
+                            msgDiv.style.color = 'white';
+                            msgDiv.innerText = data.message;
+                        })
+                        .catch(err => {
+                            msgDiv.style.display = 'block';
+                            msgDiv.style.background = '#dc3545';
+                            msgDiv.style.color = 'white';
+                            msgDiv.innerText = "Error: " + err;
+                        });
+                }
+            </script>
+        </div>
+
+        <div class="card">
+            <h2>🎞️ Daily Timelapses</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;">
+                {% for vid in videos %}
+                <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: var(--input-bg); transition: transform 0.2s; cursor: pointer;"
+                    onmouseover="this.style.transform='translateY(-2px)'"
+                    onmouseout="this.style.transform='translateY(0)'">
+                    <a href="/play_file/{{ vid.path }}" target="_blank" style="text-decoration: none; color: inherit;">
+                        <div
+                            style="width: 100%; height: 160px; background: var(--border-color); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 2em;">
+                            ⏱️
+                        </div>
+                        <div style="padding: 12px;">
+                            <div style="font-weight: bold; margin-bottom: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                title="{{ vid.name }}">{{ vid.name }}</div>
+                            <div style="font-size: 0.85em; color: var(--text-muted);">{{ vid.size }}</div>
+                        </div>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if not videos %}
+            <p style="text-align: center; color: var(--text-muted); padding: 40px;">No timelapses found.</p>
             {% endif %}
         </div>
         {% endif %}
