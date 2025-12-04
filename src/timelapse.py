@@ -102,15 +102,18 @@ def generate_timelapse(target_date=None, force=False):
         
         cmd = [
             "ffmpeg",
+            "-hwaccel", "auto",      # Attempt hardware acceleration
             "-f", "concat",
             "-safe", "0",
             "-i", str(playlist_path),
             "-filter:v", "setpts=0.01*PTS",
             "-an",
-            "-c:v", "libx264",       # FORCE standardized H.264 encoding
-            "-pix_fmt", "yuv420p",   # FORCE compatibility with all players (QuickTime/iOS)
-            "-preset", "fast",       # Balance speed/compression
-            "-y", # Overwrite output if exists
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-preset", "ultrafast",  # Max speed, larger file size
+            "-r", "30",              # Cap framerate to 30fps
+            "-crf", "30",            # Lower quality slightly to offset file size bloat
+            "-y",
             str(output_file)
         ]
         
