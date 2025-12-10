@@ -29,9 +29,13 @@ class Config:
         if cls.SETTINGS_FILE.exists():
             with open(cls.SETTINGS_FILE, "r") as f:
                 for line in f:
-                    if "=" in line:
-                        k, v = line.strip().split("=", 1)
-                        defaults[k] = v.strip('"')
+                    line = line.strip()
+                    if line and "=" in line and not line.startswith("#"):
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        if k:
+                            defaults[k] = v
         
         return defaults
 

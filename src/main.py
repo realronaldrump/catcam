@@ -218,7 +218,7 @@ async def api_stats():
             
             for f in files:
                 end_ts = f.stat().st_mtime
-                duration = 900 # Default assumption
+                duration = segment_limit_seconds # Default assumption
                 if f == latest and age < 20:
                     duration = end_ts - f.stat().st_ctime
                     if duration < 0: duration = 60
