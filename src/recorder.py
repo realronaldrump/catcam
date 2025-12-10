@@ -65,13 +65,19 @@ def thumbnail_watcher():
     Fixes previous race condition by ensuring files are stable before processing.
     """
     seen_files = set()
+    current_day = None
     
     print("Thumbnail watcher started.")
     
     while True:
         try:
             conf = Config.load()
-            today_path = Config.BOX_ROOT / conf["SUBFOLDER"] / datetime.now().strftime("%Y/%m/%d")
+            today = datetime.now().strftime("%Y/%m/%d")
+            today_path = Config.BOX_ROOT / conf["SUBFOLDER"] / today
+            
+            if today != current_day:
+                seen_files.clear()
+                current_day = today
             
             if today_path.exists():
                 # List all mp4 files

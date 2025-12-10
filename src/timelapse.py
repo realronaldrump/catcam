@@ -93,7 +93,8 @@ def generate_timelapse(target_date=None, force=False):
             for video in files:
                 # FFmpeg concat requires 'file ' prefix and safe paths
                 # Since we are running locally, absolute paths are fine.
-                f.write(f"file '{video.absolute()}'\n")
+                path_str = str(video.absolute()).replace("'", "'\\''")
+                f.write(f"file '{path_str}'\n")
         
         print(f"Created playlist at {playlist_path}")
 
