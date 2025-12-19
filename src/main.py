@@ -296,10 +296,15 @@ def get_recording_stats(today_path, segment_time):
     }
     
     try:
+        logger.info(f"get_recording_stats called with path={today_path}, segment_time={segment_time}")
+        
         if not today_path.exists():
+            logger.info(f"Path does not exist: {today_path}")
             return stats
         
         files = sorted(today_path.glob("*.mp4"), key=lambda x: x.stat().st_mtime)
+        logger.info(f"Found {len(files)} mp4 files")
+        
         if not files:
             return stats
         
@@ -311,13 +316,14 @@ def get_recording_stats(today_path, segment_time):
         stats["avg_size_mb"] = round(stats["total_size_mb"] / len(files), 1) if files else 0
         
         # Estimate hours (files * segment time)
-        stats["total_hours"] = round(len(files) * int(segment_time) / 3600, 1)
+        segment_seconds = int(segment_time) if segment_time else 900
+        stats["total_hours"] = round(len(files) * segment_seconds / 3600, 1)
         
         # Estimate bitrate from average file size and segment duration
-        if stats["avg_size_mb"] > 0 and int(segment_time) > 0:
+        if stats["avg_size_mb"] > 0 and segment_seconds > 0:
             # bitrate = size_bytes * 8 / duration_seconds / 1_000_000
             avg_bytes = stats["avg_size_mb"] * 1024 * 1024
-            stats["est_bitrate_mbps"] = round(avg_bytes * 8 / int(segment_time) / 1_000_000, 1)
+            stats["est_bitrate_mbps"] = round(avg_bytes * 8 / segment_seconds / 1_000_000, 1)
         
         # Recent files (last 8)
         recent = files[-8:] if len(files) >= 8 else files
@@ -329,29 +335,37 @@ def get_recording_stats(today_path, segment_time):
                     "size_mb": round(f.stat().st_size / (1024 * 1024), 1),
                     "time": datetime.fromtimestamp(f.stat().st_mtime).strftime("%I:%M %p")
                 })
-            except:
+            except Exception as e:
+                logger.warning(f"Error processing recent file {f}: {e}")
                 continue
         
         # Detect gaps (>2x segment time between files)
-        threshold = int(segment_time) * 2
+        threshold = segment_seconds * 2
         for i in range(1, len(files)):
-            prev_mtime = files[i-1].stat().st_mtime
-            curr_mtime = files[i].stat().st_mtime
-            gap = curr_mtime - prev_mtime - int(segment_time)
-            
-            if gap > threshold:
-                gap_start = datetime.fromtimestamp(prev_mtime + int(segment_time))
-                gap_end = datetime.fromtimestamp(curr_mtime)
-                stats["gaps"].append({
-                    "start": gap_start.strftime("%I:%M %p"),
-                    "end": gap_end.strftime("%I:%M %p"),
-                    "duration_min": round(gap / 60)
-                })
+            try:
+                prev_mtime = files[i-1].stat().st_mtime
+                curr_mtime = files[i].stat().st_mtime
+                gap = curr_mtime - prev_mtime - segment_seconds
+                
+                if gap > threshold:
+                    gap_start = datetime.fromtimestamp(prev_mtime + segment_seconds)
+                    gap_end = datetime.fromtimestamp(curr_mtime)
+                    stats["gaps"].append({
+                        "start": gap_start.strftime("%I:%M %p"),
+                        "end": gap_end.strftime("%I:%M %p"),
+                        "duration_min": round(gap / 60)
+                    })
+            except Exception as e:
+                logger.warning(f"Error detecting gap at index {i}: {e}")
+                continue
+        
+        logger.info(f"Recording stats calculated: files={stats['files_today']}, hours={stats['total_hours']}, size_mb={stats['total_size_mb']}")
         
     except Exception as e:
-        logger.error(f"Error calculating recording stats: {e}")
+        logger.error(f"Error calculating recording stats: {e}", exc_info=True)
     
     return stats
+
 
 def get_storage_trend():
     """Get storage usage for the last 7 days."""
@@ -395,6 +409,8 @@ async def dashboard(request: Request):
 async def api_stats():
     # 1. System Vitals
     conf = Config.load()
+    logger.info(f"Config loaded: SUBFOLDER={conf.get('SUBFOLDER')}, SEGMENT_TIME={conf.get('SEGMENT_TIME')}")
+    
     cam_active = get_recorder_status()
     box_active = Config.BOX_ROOT.exists() and os.access(Config.BOX_ROOT, os.R_OK)
     disk = get_disk_usage()
@@ -409,16 +425,27 @@ async def api_stats():
     
     # 2. File & Timeline Logic
     today_path = Config.BOX_ROOT / conf["SUBFOLDER"] / datetime.now().strftime("%Y/%m/%d")
+    logger.info(f"Today path: {today_path}, exists: {today_path.exists()}")
+    
     current_file = "Waiting..."
     current_size = "0.00 MB"
     status_msg = "Idle"
     files_today = 0
     timeline_segments = []
     elapsed_seconds = 0
-    segment_limit_seconds = int(conf.get("SEGMENT_TIME", 900))
+    
+    # Parse segment time with error handling
+    try:
+        segment_limit_seconds = int(conf.get("SEGMENT_TIME", 900))
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Failed to parse SEGMENT_TIME '{conf.get('SEGMENT_TIME')}': {e}, using default 900")
+        segment_limit_seconds = 900
+    
+    logger.info(f"Segment limit seconds: {segment_limit_seconds}")
     
     # Get comprehensive recording stats
     recording_stats = get_recording_stats(today_path, segment_limit_seconds)
+    logger.info(f"Recording stats: files_today={recording_stats.get('files_today')}, total_hours={recording_stats.get('total_hours')}, total_size_mb={recording_stats.get('total_size_mb')}")
     
     # Get 7-day storage trend
     storage_trend = get_storage_trend()

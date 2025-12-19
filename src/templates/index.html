@@ -777,6 +777,8 @@
 
                         // Recording stats - always update, showing 0 values when appropriate
                         const rec = data.recording || {};
+                        console.log('API recording data:', data.recording);
+                        console.log('rec.files_today:', rec.files_today, 'type:', typeof rec.files_today);
                         document.getElementById('files-today').textContent = rec.files_today !== undefined ? rec.files_today : '--';
                         document.getElementById('hours-today').textContent = rec.total_hours !== undefined ? rec.total_hours + ' hrs' : '-- hrs';
                         document.getElementById('storage-today').textContent = rec.total_size_mb !== undefined ? (rec.total_size_mb / 1024).toFixed(2) + ' GB' : '-- GB';
