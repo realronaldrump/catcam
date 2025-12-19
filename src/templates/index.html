@@ -15,8 +15,12 @@
             --nav-text: #aaa;
             --nav-hover-bg: #007bff;
             --nav-active-text: white;
-            --text-muted: #aaa;
+            --text-muted: #888;
             --shadow: none;
+            --green: #28a745;
+            --red: #dc3545;
+            --yellow: #ffc107;
+            --blue: #007bff;
         }
 
         body.light-mode {
@@ -27,43 +31,45 @@
             --border-color: #ddd;
             --input-bg: #fff;
             --input-border: #ccc;
-
             --nav-text: #65676b;
             --text-muted: #666;
             --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', -apple-system, sans-serif;
             background: var(--bg-color);
             color: var(--text-color);
             margin: 0;
             transition: background 0.3s, color 0.3s;
+            font-size: 14px;
         }
 
         .nav {
             background: var(--nav-bg);
-            padding: 15px;
-            text-align: center;
-            border-bottom: 1px solid var(--border-color);
+            padding: 12px 20px;
             display: flex;
             justify-content: center;
             align-items: center;
+            gap: 5px;
+            border-bottom: 1px solid var(--border-color);
             box-shadow: var(--shadow);
-            transition: background 0.3s, border-color 0.3s;
         }
 
         .nav a {
             color: var(--nav-text);
             text-decoration: none;
-            padding: 10px 20px;
-            margin: 0 5px;
+            padding: 8px 16px;
             border-radius: 5px;
+            font-size: 13px;
             transition: 0.2s;
         }
 
-        .nav a:hover,
-        .nav a.active {
+        .nav a:hover, .nav a.active {
             background: var(--nav-hover-bg);
             color: var(--nav-active-text);
         }
@@ -73,82 +79,351 @@
             border: 1px solid var(--border-color);
             color: var(--text-color);
             cursor: pointer;
-            padding: 8px 12px;
-            border-radius: 20px;
-            margin-left: 20px;
-            font-size: 1.2em;
-            transition: all 0.3s;
-        }
-
-        .theme-toggle:hover {
-            background: var(--input-bg);
+            padding: 6px 10px;
+            border-radius: 15px;
+            margin-left: 15px;
+            font-size: 1em;
         }
 
         .container {
-            max-width: 1000px;
-            margin: 20px auto;
-            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            display: flex;
+            gap: 12px;
+            padding: 10px 15px;
+            background: var(--card-bg);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            padding: 4px 10px;
+            background: var(--input-bg);
+            border-radius: 4px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .status-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+        .status-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+        .status-dot.yellow { background: var(--yellow); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .status-dot.pulse { animation: pulse 1.5s infinite; }
+
+        /* Main Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 15px;
+        }
+
+        @media (max-width: 900px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
         }
 
         .card {
             background: var(--card-bg);
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
+            padding: 12px 15px;
+            border-radius: 8px;
             border: 1px solid var(--border-color);
             box-shadow: var(--shadow);
-            transition: background 0.3s, border-color 0.3s;
         }
 
-        h2 {
-            margin-top: 0;
-            color: var(--text-color);
+        .card-header {
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .badge {
-            padding: 5px 12px;
-            border-radius: 15px;
+        /* Live Feed */
+        .live-feed {
+            position: relative;
+        }
+
+        .live-feed img {
+            width: 100%;
+            border-radius: 6px;
+            display: block;
+        }
+
+        .live-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: var(--red);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
             font-weight: bold;
-            font-size: 0.85em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .live-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+
+        .clock-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: 'SF Mono', 'Consolas', monospace;
+        }
+
+        /* Data Table */
+        .data-table {
+            width: 100%;
+            font-size: 12px;
+        }
+
+        .data-table tr {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .data-table tr:last-child {
+            border-bottom: none;
+        }
+
+        .data-table td {
+            padding: 6px 0;
+        }
+
+        .data-table td:first-child {
+            color: var(--text-muted);
+            width: 110px;
+        }
+
+        .data-table td:last-child {
+            font-family: 'SF Mono', 'Consolas', monospace;
+            font-weight: 500;
+            text-align: right;
+        }
+
+        /* Vitals Grid */
+        .vitals-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .vital-box {
+            background: var(--input-bg);
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .vital-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .vital-value {
+            font-size: 16px;
+            font-weight: 600;
+            font-family: 'SF Mono', 'Consolas', monospace;
+        }
+
+        /* Disk Bar */
+        .disk-bar-container {
+            background: var(--input-bg);
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .disk-bar-fill {
+            height: 100%;
+            transition: width 0.5s;
+        }
+
+        /* Timeline */
+        .timeline-container {
+            background: var(--input-bg);
+            height: 24px;
+            width: 100%;
+            position: relative;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .timeline-segment {
+            position: absolute;
+            height: 100%;
+            background: var(--green);
+            opacity: 0.8;
+        }
+
+        .timeline-markers {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-muted);
+            font-size: 10px;
+            margin-top: 3px;
+            padding: 0 2px;
+        }
+
+        /* Recent Files Table */
+        .files-table {
+            width: 100%;
+            font-size: 11px;
+            border-collapse: collapse;
+        }
+
+        .files-table th {
+            text-align: left;
+            color: var(--text-muted);
+            font-weight: 500;
+            padding: 4px 6px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .files-table th:last-child,
+        .files-table td:last-child {
+            text-align: right;
+        }
+
+        .files-table td {
+            padding: 5px 6px;
+            font-family: 'SF Mono', 'Consolas', monospace;
+        }
+
+        .files-table tr:nth-child(even) {
+            background: var(--input-bg);
+        }
+
+        /* Storage Trend */
+        .trend-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            height: 60px;
+            padding-top: 5px;
+        }
+
+        .trend-bar-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .trend-bar {
+            width: 100%;
+            background: var(--blue);
+            border-radius: 2px;
+            min-height: 4px;
+            transition: height 0.3s;
+        }
+
+        .trend-label {
+            font-size: 9px;
+            color: var(--text-muted);
+        }
+
+        /* Alerts */
+        .alerts-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .alert-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .alert-item.error {
+            background: rgba(220, 53, 69, 0.15);
+            border-left: 3px solid var(--red);
+        }
+
+        .alert-item.warning {
+            background: rgba(255, 193, 7, 0.15);
+            border-left: 3px solid var(--yellow);
+        }
+
+        .alert-item.info {
+            background: rgba(0, 123, 255, 0.15);
+            border-left: 3px solid var(--blue);
+        }
+
+        .no-alerts {
+            color: var(--text-muted);
+            font-size: 11px;
+            text-align: center;
+            padding: 15px;
+        }
+
+        /* Right Column Cards */
+        .sidebar-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Badge styles for non-dashboard pages */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 0.8em;
             text-transform: uppercase;
         }
 
-        .green {
-            background-color: #28a745;
-            color: white;
-            box-shadow: 0 0 10px rgba(40, 167, 69, 0.4);
-        }
+        .green-badge { background-color: var(--green); color: white; }
+        .red-badge { background-color: var(--red); color: white; }
+        .yellow-badge { background-color: var(--yellow); color: #000; }
 
-        .red {
-            background-color: #dc3545;
-            color: white;
-            box-shadow: 0 0 10px rgba(220, 53, 69, 0.4);
-        }
-
-        .yellow {
-            background-color: #ffc107;
-            color: #000;
-        }
-
-        .console {
-            background: #000;
-            color: #0f0;
-            font-family: 'Courier New', monospace;
-            padding: 15px;
-            border-radius: 5px;
-            height: 200px;
-            overflow-y: auto;
-            font-size: 12px;
-            border: 1px solid var(--border-color);
-            white-space: pre-wrap;
-        }
-
-        input,
-        button,
-        select {
+        /* Settings & Library styles */
+        input, button, select {
             padding: 10px;
             background: var(--input-bg);
             border: 1px solid var(--input-border);
@@ -157,79 +432,88 @@
         }
 
         button.btn {
-            background: #007bff;
+            background: var(--blue);
             border: none;
             cursor: pointer;
             width: 100%;
             color: white;
         }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        .stat-val {
-            font-size: 1.5em;
-            font-weight: bold;
-            margin: 5px 0;
-        }
-
-        .disk-bg {
-            background: var(--input-border);
-            height: 20px;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-top: 5px;
-        }
-
-        .disk-fill {
-            height: 100%;
-            width: 0%;
-            transition: width 0.5s;
-        }
-
-        input[type="text"],
-        input[type="number"] {
+        input[type="text"], input[type="number"], input[type="date"] {
             width: 100%;
-            box-sizing: border-box;
             margin-bottom: 10px;
         }
 
-        /* Timeline Styles */
-        .timeline-container {
-            margin-top: 10px;
-            background: var(--input-bg);
-            height: 30px;
-            width: 100%;
-            position: relative;
-            border-radius: 4px;
-            overflow: hidden;
+        h2 {
+            margin-top: 0;
+            font-size: 1.3em;
+        }
+
+        /* Video grid for library */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .video-card {
             border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--input-bg);
+            transition: transform 0.2s;
+            cursor: pointer;
         }
 
-        .timeline-segment {
-            position: absolute;
-            height: 100%;
-            background: #28a745;
-            opacity: 0.8;
-            border-right: 1px solid var(--bg-color);
+        .video-card:hover {
+            transform: translateY(-2px);
         }
 
-        .timeline-markers {
+        .video-card a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .video-thumb {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .video-thumb-placeholder {
+            width: 100%;
+            height: 160px;
+            background: var(--border-color);
             display: flex;
-            justify-content: space-between;
-            color: #888;
-            font-size: 0.7em;
-            margin-top: 2px;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-size: 2em;
+        }
+
+        .video-info {
+            padding: 12px;
+        }
+
+        .video-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .video-size {
+            font-size: 0.85em;
+            color: var(--text-muted);
         }
     </style>
 </head>
 
 <body>
     <div class="nav">
-        <a href="/" class="{% if page == 'dashboard' %}active{% endif %}">Live Dashboard</a>
+        <a href="/" class="{% if page == 'dashboard' %}active{% endif %}">Dashboard</a>
         <a href="/library" class="{% if page == 'library' %}active{% endif %}">Library</a>
         <a href="/timelapses" class="{% if page == 'timelapses' %}active{% endif %}">Timelapses</a>
         <a href="/settings" class="{% if page == 'settings' %}active{% endif %}">Settings</a>
@@ -238,126 +522,260 @@
 
     <div class="container">
         {% if page == 'dashboard' %}
-        <div class="card">
-            <h2>🔴 Live Feed <span id="clock" style="font-size:0.6em; color:var(--text-muted);"></span></h2>
-            <img src="/video_feed" style="width: 100%; border-radius: 5px; border: 1px solid var(--input-border);">
-        </div>
-
-        <div class="stats-grid">
-            <div class="card">
-                <h2>System Health</h2>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                    <span>Recorder:</span><span id="cam-status" class="badge red">...</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                    <span>Box Mount:</span><span id="box-status" class="badge red">...</span>
-                </div>
-
-                <div
-                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--input-border);">
-                    <div>
-                        <div style="font-size: 0.8em; color: var(--text-muted);">CPU Temp</div>
-                        <div id="cpu-temp" style="font-weight: bold;">--°F</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 0.8em; color: var(--text-muted);">Cam Latency</div>
-                        <div id="ping-ms" style="font-weight: bold;">-- ms</div>
-                    </div>
-                </div>
-
-                <div style="margin-top: 15px;">
-                    <div style="display: flex; justify-content: space-between;">
-                        <span>Disk:</span><span id="disk-text" style="font-weight: bold;">...</span>
-                    </div>
-                    <div class="disk-bg">
-                        <div id="disk-bar" class="disk-fill"></div>
-                    </div>
-                </div>
+        
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span id="rec-dot" class="status-dot red"></span>
+                <span>Recorder: <strong id="rec-status">--</strong></span>
             </div>
-
-            <div class="card">
-                <h2>Active Recording</h2>
-                <div style="display: flex; justify-content: space-between;">
-                    <span>Status:</span><span id="write-status" class="badge yellow">...</span>
-                </div>
-                <div style="margin-top: 10px;">
-                    <div style="font-size: 0.9em; color: var(--text-muted);">Current File:</div>
-                    <div id="curr-file" style="font-weight: bold;">...</div>
-                    <div style="font-size: 0.9em; color: var(--text-muted); margin-top: 5px;">Size:</div>
-                    <div id="curr-size" class="stat-val" style="color: #28a745;">0.00 MB</div>
-                    <div style="font-size: 0.9em; color: var(--text-muted); margin-top: 5px;">Duration:</div>
-                    <div id="rec-duration" style="font-weight: bold;">00:00 / 00:00</div>
-                    <div style="font-size: 0.9em; color: var(--text-muted); margin-top: 5px;">Segment Setting:</div>
-                    <div id="seg-setting" style="font-weight: bold;">-- min</div>
-                </div>
+            <div class="status-item">
+                <span id="box-dot" class="status-dot red"></span>
+                <span>Storage: <strong id="box-status">--</strong></span>
+            </div>
+            <div class="status-item">
+                <span>Uptime: <strong id="uptime">--</strong></span>
+            </div>
+            <div class="status-item">
+                <span>CPU: <strong id="cpu-usage">--%</strong></span>
+            </div>
+            <div class="status-item">
+                <span>Mem: <strong id="mem-usage">--</strong></span>
+            </div>
+            <div class="status-item">
+                <span>Disk: <strong id="disk-short">--%</strong></span>
+            </div>
+            <div class="status-item" style="margin-left: auto;">
+                <span id="clock" style="font-family: monospace;">--:--:--</span>
             </div>
         </div>
 
-        <div class="card">
-            <h2>📅 24-Hour Timeline (Today)</h2>
-            <div style="font-size: 0.8em; color: var(--text-muted); margin-bottom: 5px;">Green blocks = Recorded Video.
-                Black gaps =
-                Missing footage.</div>
-            <div id="timeline" class="timeline-container">
+        <div class="dashboard-grid">
+            <!-- Left Column -->
+            <div>
+                <!-- Live Feed -->
+                <div class="card live-feed" style="margin-bottom: 15px;">
+                    <div class="live-badge">LIVE</div>
+                    <div class="clock-badge" id="feed-clock">--:--:--</div>
+                    <img src="/video_feed" alt="Live Feed">
+                </div>
+
+                <!-- Timeline -->
+                <div class="card">
+                    <div class="card-header">24-Hour Timeline</div>
+                    <div id="timeline" class="timeline-container"></div>
+                    <div class="timeline-markers">
+                        <span>12a</span><span>4a</span><span>8a</span><span>12p</span><span>4p</span><span>8p</span><span>12a</span>
+                    </div>
+                </div>
+
+                <!-- Storage Trend -->
+                <div class="card" style="margin-top: 15px;">
+                    <div class="card-header">7-Day Storage Trend</div>
+                    <div id="trend-chart" class="trend-chart"></div>
+                </div>
+
+                <!-- Recent Files -->
+                <div class="card" style="margin-top: 15px;">
+                    <div class="card-header">Recent Recordings</div>
+                    <table class="files-table">
+                        <thead>
+                            <tr><th>File</th><th>Time</th><th>Size</th></tr>
+                        </thead>
+                        <tbody id="recent-files"></tbody>
+                    </table>
+                </div>
             </div>
-            <div class="timeline-markers">
-                <span>12 AM</span><span>4 AM</span><span>8 AM</span><span>12 PM</span><span>4 PM</span><span>8
-                    PM</span><span>11:59 PM</span>
+
+            <!-- Right Column -->
+            <div class="sidebar-cards">
+                <!-- Recording Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <span>Active Recording</span>
+                        <span id="write-badge" class="status-dot yellow"></span>
+                    </div>
+                    <table class="data-table">
+                        <tr><td>Status</td><td id="write-status">--</td></tr>
+                        <tr><td>File</td><td id="curr-file">--</td></tr>
+                        <tr><td>Duration</td><td id="rec-duration">--:-- / --:--</td></tr>
+                        <tr><td>Size</td><td id="curr-size">-- MB</td></tr>
+                        <tr><td>Est. Bitrate</td><td id="bitrate">-- Mbps</td></tr>
+                    </table>
+                </div>
+
+                <!-- Today's Stats -->
+                <div class="card">
+                    <div class="card-header">Today's Stats</div>
+                    <table class="data-table">
+                        <tr><td>Segments</td><td id="files-today">--</td></tr>
+                        <tr><td>Hours Recorded</td><td id="hours-today">--</td></tr>
+                        <tr><td>Storage Used</td><td id="storage-today">-- GB</td></tr>
+                        <tr><td>Avg File Size</td><td id="avg-size">-- MB</td></tr>
+                        <tr><td>Segment Time</td><td id="seg-setting">-- min</td></tr>
+                    </table>
+                </div>
+
+                <!-- System Vitals -->
+                <div class="card">
+                    <div class="card-header">System Vitals</div>
+                    <div class="vitals-grid">
+                        <div class="vital-box">
+                            <div class="vital-label">CPU Temp</div>
+                            <div class="vital-value" id="cpu-temp">--</div>
+                        </div>
+                        <div class="vital-box">
+                            <div class="vital-label">Cam Ping</div>
+                            <div class="vital-value" id="ping-ms">--</div>
+                        </div>
+                        <div class="vital-box">
+                            <div class="vital-label">Net TX</div>
+                            <div class="vital-value" id="net-tx">--</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
+                            <span>Disk Usage</span>
+                            <span id="disk-text">-- (-- free)</span>
+                        </div>
+                        <div class="disk-bar-container">
+                            <div id="disk-bar" class="disk-bar-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alerts -->
+                <div class="card">
+                    <div class="card-header">Alerts</div>
+                    <div id="alerts-container" class="alerts-list">
+                        <div class="no-alerts">No alerts</div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <script>
             function updateStats() {
-                fetch('/api/stats?t=' + new Date().getTime())
+                fetch('/api/stats?t=' + Date.now())
                     .then(r => r.json())
                     .then(data => {
-                        // Status
-                        document.getElementById('cam-status').className = data.cam_active ? 'badge green' : 'badge red';
-                        document.getElementById('cam-status').innerText = data.cam_active ? 'ONLINE' : 'OFFLINE';
-                        document.getElementById('box-status').className = data.box_active ? 'badge green' : 'badge red';
-                        document.getElementById('box-status').innerText = data.box_active ? 'MOUNTED' : 'ERROR';
+                        // Status bar
+                        const recDot = document.getElementById('rec-dot');
+                        const boxDot = document.getElementById('box-dot');
+                        
+                        recDot.className = 'status-dot ' + (data.cam_active ? 'green pulse' : 'red');
+                        document.getElementById('rec-status').textContent = data.cam_active ? 'Active' : 'Offline';
+                        
+                        boxDot.className = 'status-dot ' + (data.box_active ? 'green' : 'red');
+                        document.getElementById('box-status').textContent = data.box_active ? 'Mounted' : 'Error';
+                        
+                        document.getElementById('uptime').textContent = data.uptime || '--';
+                        document.getElementById('cpu-usage').textContent = data.cpu_usage !== null ? data.cpu_usage + '%' : '--%';
+                        
+                        if (data.memory) {
+                            document.getElementById('mem-usage').textContent = data.memory.used_gb + '/' + data.memory.total_gb + 'G';
+                        }
+                        
+                        document.getElementById('disk-short').textContent = data.disk ? data.disk.percent + '%' : '--%';
 
-                        // Recording
-                        const write = document.getElementById('write-status');
-                        write.className = data.status_msg === 'Recording (Active)' ? 'badge green' : 'badge yellow';
-                        write.innerText = data.status_msg;
-                        document.getElementById('curr-file').innerText = data.current_file;
-                        document.getElementById('curr-size').innerText = data.current_size;
-
-                        // Format Duration
+                        // Recording status
+                        const writeStatus = document.getElementById('write-status');
+                        const writeBadge = document.getElementById('write-badge');
+                        writeStatus.textContent = data.status_msg;
+                        writeBadge.className = 'status-dot ' + (data.status_msg === 'Recording (Active)' ? 'green pulse' : 'yellow');
+                        
+                        document.getElementById('curr-file').textContent = data.current_file;
+                        document.getElementById('curr-size').textContent = data.current_size;
+                        
                         const fmtTime = (s) => {
                             const m = Math.floor(s / 60).toString().padStart(2, '0');
                             const sec = (s % 60).toString().padStart(2, '0');
                             return `${m}:${sec}`;
                         };
-                        document.getElementById('rec-duration').innerText = `${fmtTime(data.elapsed_seconds)} / ${fmtTime(data.segment_limit_seconds)}`;
-                        document.getElementById('seg-setting').innerText = `${Math.round(data.segment_limit_seconds / 60)} min`;
+                        document.getElementById('rec-duration').textContent = 
+                            fmtTime(data.elapsed_seconds) + ' / ' + fmtTime(data.segment_limit_seconds);
+                        document.getElementById('seg-setting').textContent = Math.round(data.segment_limit_seconds / 60) + ' min';
 
-                        // Vitals
-                        document.getElementById('cpu-temp').innerText = data.cpu_temp;
+                        // Recording stats
+                        if (data.recording) {
+                            document.getElementById('files-today').textContent = data.recording.files_today;
+                            document.getElementById('hours-today').textContent = data.recording.total_hours + ' hrs';
+                            document.getElementById('storage-today').textContent = (data.recording.total_size_mb / 1024).toFixed(2) + ' GB';
+                            document.getElementById('avg-size').textContent = data.recording.avg_size_mb + ' MB';
+                            document.getElementById('bitrate').textContent = data.recording.est_bitrate_mbps ? 
+                                data.recording.est_bitrate_mbps + ' Mbps' : '-- Mbps';
+                        }
+
+                        // System vitals
+                        document.getElementById('cpu-temp').textContent = data.cpu_temp || '--';
+                        
                         const pingEl = document.getElementById('ping-ms');
-                        if (data.ping_ms) {
-                            pingEl.innerText = data.ping_ms + ' ms';
-                            pingEl.style.color = data.ping_ms > 100 ? '#dc3545' : '#28a745';
+                        if (data.ping_ms !== null) {
+                            pingEl.textContent = data.ping_ms + 'ms';
+                            pingEl.style.color = data.ping_ms > 100 ? 'var(--red)' : 'var(--green)';
                         } else {
-                            pingEl.innerText = 'Timeout';
-                            pingEl.style.color = '#dc3545';
+                            pingEl.textContent = 'Timeout';
+                            pingEl.style.color = 'var(--red)';
+                        }
+
+                        if (data.network) {
+                            document.getElementById('net-tx').textContent = data.network.tx_gb + 'GB';
                         }
 
                         // Disk
-                        const diskBar = document.getElementById('disk-bar');
-                        document.getElementById('disk-text').innerText = data.disk.percent + "% (" + data.disk.free_gb + " GB free)";
-                        diskBar.style.width = data.disk.percent + "%";
-                        diskBar.style.background = data.disk.percent > 90 ? '#dc3545' : '#28a745';
+                        if (data.disk) {
+                            document.getElementById('disk-text').textContent = 
+                                data.disk.percent + '% (' + data.disk.free_gb + 'GB free)';
+                            const diskBar = document.getElementById('disk-bar');
+                            diskBar.style.width = data.disk.percent + '%';
+                            diskBar.style.background = data.disk.percent > 90 ? 'var(--red)' : 
+                                data.disk.percent > 75 ? 'var(--yellow)' : 'var(--green)';
+                        }
 
-                        // Render Timeline
+                        // Timeline
                         const tl = document.getElementById('timeline');
                         tl.innerHTML = data.timeline.map(seg =>
                             `<div class="timeline-segment" style="left: ${seg.left}; width: ${seg.width};"></div>`
                         ).join('');
+
+                        // Storage trend
+                        if (data.storage_trend && data.storage_trend.length > 0) {
+                            const maxGb = Math.max(...data.storage_trend.map(d => d.size_gb), 0.1);
+                            const trendHtml = data.storage_trend.slice().reverse().map(d => {
+                                const height = (d.size_gb / maxGb) * 50;
+                                return `<div class="trend-bar-wrapper">
+                                    <div class="trend-bar" style="height: ${height}px;" title="${d.size_gb}GB / ${d.hours}hrs"></div>
+                                    <div class="trend-label">${d.day}</div>
+                                </div>`;
+                            }).join('');
+                            document.getElementById('trend-chart').innerHTML = trendHtml;
+                        }
+
+                        // Recent files
+                        if (data.recording && data.recording.recent_files) {
+                            const filesHtml = data.recording.recent_files.slice(0, 6).map(f =>
+                                `<tr><td>${f.name}</td><td>${f.time}</td><td>${f.size_mb} MB</td></tr>`
+                            ).join('');
+                            document.getElementById('recent-files').innerHTML = filesHtml || '<tr><td colspan="3" style="text-align:center; color: var(--text-muted);">No files yet</td></tr>';
+                        }
+
+                        // Alerts
+                        const alertsContainer = document.getElementById('alerts-container');
+                        if (data.alerts && data.alerts.length > 0) {
+                            alertsContainer.innerHTML = data.alerts.map(a =>
+                                `<div class="alert-item ${a.type}">${a.msg}</div>`
+                            ).join('');
+                        } else {
+                            alertsContainer.innerHTML = '<div class="no-alerts">✓ All systems normal</div>';
+                        }
                     });
-                document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+
+                // Update clocks
+                const now = new Date().toLocaleTimeString();
+                document.getElementById('clock').textContent = now;
+                document.getElementById('feed-clock').textContent = now;
             }
+            
             setInterval(updateStats, 2000);
             updateStats();
         </script>
@@ -366,30 +784,23 @@
         {% if page == 'library' %}
         <div class="card">
             <h2>📂 Video Library</h2>
-            <form action="/library" method="get" style="margin-bottom: 20px;">
-                <input type="date" name="date" value="{{ current_date }}" required style="width: auto;">
-                <button type="submit" class="btn" style="width: auto; padding: 5px 20px;">Go</button>
+            <form action="/library" method="get" style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
+                <input type="date" name="date" value="{{ current_date }}" required style="width: auto; margin: 0;">
+                <button type="submit" class="btn" style="width: auto; padding: 10px 25px;">Go</button>
             </form>
 
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;">
+            <div class="video-grid">
                 {% for vid in videos %}
-                <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: var(--input-bg); transition: transform 0.2s; cursor: pointer;"
-                    onmouseover="this.style.transform='translateY(-2px)'"
-                    onmouseout="this.style.transform='translateY(0)'">
-                    <a href="/play_file/{{ vid.path }}" target="_blank" style="text-decoration: none; color: inherit;">
+                <div class="video-card">
+                    <a href="/play_file/{{ vid.path }}" target="_blank">
                         {% if vid.thumb %}
-                        <img src="/thumb/{{ vid.thumb }}"
-                            style="width: 100%; height: 160px; object-fit: cover; display: block;">
+                        <img src="/thumb/{{ vid.thumb }}" class="video-thumb">
                         {% else %}
-                        <div
-                            style="width: 100%; height: 160px; background: var(--border-color); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 2em;">
-                            🎬
-                        </div>
+                        <div class="video-thumb-placeholder">🎬</div>
                         {% endif %}
-                        <div style="padding: 12px;">
-                            <div style="font-weight: bold; margin-bottom: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
-                                title="{{ vid.name }}">{{ vid.name }}</div>
-                            <div style="font-size: 0.85em; color: var(--text-muted);">{{ vid.size }}</div>
+                        <div class="video-info">
+                            <div class="video-name" title="{{ vid.name }}">{{ vid.name }}</div>
+                            <div class="video-size">{{ vid.size }}</div>
                         </div>
                     </a>
                 </div>
@@ -426,9 +837,6 @@
                     const formData = new FormData(form);
                     const msgDiv = document.getElementById('tl-msg');
 
-                    // Add force boolean manually if needed, but FormData handles checkbox presence usually
-                    // Checkbox only sends 'on' if checked, or nothing. FastAPI Form(False) handles missing.
-
                     fetch('/api/generate_timelapse', {
                         method: 'POST',
                         body: formData
@@ -436,13 +844,13 @@
                         .then(r => r.json())
                         .then(data => {
                             msgDiv.style.display = 'block';
-                            msgDiv.style.background = data.success ? '#28a745' : '#dc3545';
+                            msgDiv.style.background = data.success ? 'var(--green)' : 'var(--red)';
                             msgDiv.style.color = 'white';
                             msgDiv.innerText = data.message;
                         })
                         .catch(err => {
                             msgDiv.style.display = 'block';
-                            msgDiv.style.background = '#dc3545';
+                            msgDiv.style.background = 'var(--red)';
                             msgDiv.style.color = 'white';
                             msgDiv.innerText = "Error: " + err;
                         });
@@ -450,22 +858,16 @@
             </script>
         </div>
 
-        <div class="card">
+        <div class="card" style="margin-top: 15px;">
             <h2>🎞️ Daily Timelapses</h2>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;">
+            <div class="video-grid">
                 {% for vid in videos %}
-                <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: var(--input-bg); transition: transform 0.2s; cursor: pointer;"
-                    onmouseover="this.style.transform='translateY(-2px)'"
-                    onmouseout="this.style.transform='translateY(0)'">
-                    <a href="/play_file/{{ vid.path }}" target="_blank" style="text-decoration: none; color: inherit;">
-                        <div
-                            style="width: 100%; height: 160px; background: var(--border-color); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 2em;">
-                            ⏱️
-                        </div>
-                        <div style="padding: 12px;">
-                            <div style="font-weight: bold; margin-bottom: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
-                                title="{{ vid.name }}">{{ vid.name }}</div>
-                            <div style="font-size: 0.85em; color: var(--text-muted);">{{ vid.size }}</div>
+                <div class="video-card">
+                    <a href="/play_file/{{ vid.path }}" target="_blank">
+                        <div class="video-thumb-placeholder">⏱️</div>
+                        <div class="video-info">
+                            <div class="video-name" title="{{ vid.name }}">{{ vid.name }}</div>
+                            <div class="video-size">{{ vid.size }}</div>
                         </div>
                     </a>
                 </div>
@@ -481,11 +883,13 @@
         {% if page == 'settings' %}
         <div class="card">
             <h2>⚙️ Settings</h2>
-            {% if message %}<div
-                style="background: #28a745; color: white; padding: 10px; border-radius: 5px; margin-bottom: 15px;">{{
-                message }}</div>{% endif %}
+            {% if message %}
+            <div style="background: var(--green); color: white; padding: 10px; border-radius: 5px; margin-bottom: 15px;">{{ message }}</div>
+            {% endif %}
             <form action="/settings" method="post">
-                <label>Subfolder:</label> <input type="text" name="subfolder" value="{{ config.SUBFOLDER }}">
+                <label>Subfolder:</label>
+                <input type="text" name="subfolder" value="{{ config.SUBFOLDER }}">
+                
                 <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                     <div style="flex: 1;">
                         <label>Segment (min):</label>
@@ -493,32 +897,32 @@
                     </div>
                     <div style="flex: 1;">
                         <label>Segment (sec):</label>
-                        <input type="number" name="segment_seconds" value="{{ segment_seconds }}" min="0" max="59"
-                            required>
+                        <input type="number" name="segment_seconds" value="{{ segment_seconds }}" min="0" max="59" required>
                     </div>
                 </div>
+                
                 <h3>Camera</h3>
-                <label>IP:</label> <input type="text" name="camera_ip" value="{{ config.CAMERA_IP }}">
-                <label>User:</label> <input type="text" name="camera_user" value="{{ config.CAMERA_USER }}">
-                <label>Pass:</label> <input type="password" name="camera_pass" value="{{ config.CAMERA_PASS }}">
+                <label>IP:</label>
+                <input type="text" name="camera_ip" value="{{ config.CAMERA_IP }}">
+                <label>User:</label>
+                <input type="text" name="camera_user" value="{{ config.CAMERA_USER }}">
+                <label>Pass:</label>
+                <input type="password" name="camera_pass" value="{{ config.CAMERA_PASS }}">
                 <button type="submit" class="btn" style="margin-top: 10px;">Save & Restart</button>
             </form>
         </div>
         {% endif %}
     </div>
+
     <script>
-        // Theme Toggling Logic
         function toggleTheme() {
             const body = document.body;
             body.classList.toggle('light-mode');
-            const isLight = body.classList.contains('light-mode');
-            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            localStorage.setItem('theme', body.classList.contains('light-mode') ? 'light' : 'dark');
         }
 
-        // Initialize Theme
         (function () {
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'light') {
+            if (localStorage.getItem('theme') === 'light') {
                 document.body.classList.add('light-mode');
             }
         })();

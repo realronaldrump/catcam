@@ -5,7 +5,7 @@ import time
 import subprocess
 import threading
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from fastapi import FastAPI, Request, Form, BackgroundTasks
 from fastapi.templating import Jinja2Templates
@@ -163,6 +163,208 @@ def get_recorder_status():
     except:
         return False
 
+def get_cpu_usage():
+    """Reads CPU usage from /proc/stat (Linux only)."""
+    try:
+        stat_path = Path("/proc/stat")
+        if not stat_path.exists():
+            return None
+        
+        with open(stat_path) as f:
+            line = f.readline()
+        
+        parts = line.split()
+        if parts[0] != "cpu":
+            return None
+        
+        # user, nice, system, idle, iowait, irq, softirq, steal
+        user, nice, system, idle, iowait = map(int, parts[1:6])
+        total = user + nice + system + idle + iowait
+        idle_pct = (idle + iowait) / total * 100
+        return round(100 - idle_pct, 1)
+    except:
+        return None
+
+def get_memory_usage():
+    """Reads memory stats from /proc/meminfo (Linux only)."""
+    try:
+        meminfo_path = Path("/proc/meminfo")
+        if not meminfo_path.exists():
+            return None
+        
+        mem = {}
+        with open(meminfo_path) as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 2:
+                    key = parts[0].rstrip(':')
+                    val = int(parts[1])  # in kB
+                    mem[key] = val
+        
+        total = mem.get("MemTotal", 0)
+        available = mem.get("MemAvailable", mem.get("MemFree", 0))
+        used = total - available
+        
+        return {
+            "total_gb": round(total / (1024 * 1024), 1),
+            "used_gb": round(used / (1024 * 1024), 1),
+            "percent": round(used / total * 100, 1) if total else 0
+        }
+    except:
+        return None
+
+def get_system_uptime():
+    """Reads system uptime from /proc/uptime (Linux only)."""
+    try:
+        uptime_path = Path("/proc/uptime")
+        if not uptime_path.exists():
+            return None
+        
+        with open(uptime_path) as f:
+            uptime_seconds = float(f.read().split()[0])
+        
+        days = int(uptime_seconds // 86400)
+        hours = int((uptime_seconds % 86400) // 3600)
+        minutes = int((uptime_seconds % 3600) // 60)
+        
+        if days > 0:
+            return f"{days}d {hours}h {minutes}m"
+        elif hours > 0:
+            return f"{hours}h {minutes}m"
+        else:
+            return f"{minutes}m"
+    except:
+        return None
+
+def get_network_io():
+    """Reads network I/O stats from /proc/net/dev (Linux only)."""
+    try:
+        net_path = Path("/proc/net/dev")
+        if not net_path.exists():
+            return None
+        
+        with open(net_path) as f:
+            lines = f.readlines()[2:]  # Skip headers
+        
+        total_rx = 0
+        total_tx = 0
+        for line in lines:
+            parts = line.split()
+            iface = parts[0].rstrip(':')
+            if iface == "lo":  # Skip loopback
+                continue
+            total_rx += int(parts[1])
+            total_tx += int(parts[9])
+        
+        return {
+            "rx_gb": round(total_rx / (1024**3), 2),
+            "tx_gb": round(total_tx / (1024**3), 2)
+        }
+    except:
+        return None
+
+def get_recording_stats(today_path, segment_time):
+    """Calculate comprehensive recording statistics for today."""
+    stats = {
+        "files_today": 0,
+        "total_hours": 0,
+        "total_size_mb": 0,
+        "avg_size_mb": 0,
+        "est_bitrate_mbps": None,
+        "gaps": [],
+        "recent_files": []
+    }
+    
+    try:
+        if not today_path.exists():
+            return stats
+        
+        files = sorted(today_path.glob("*.mp4"), key=lambda x: x.stat().st_mtime)
+        if not files:
+            return stats
+        
+        stats["files_today"] = len(files)
+        
+        # Calculate totals
+        total_size = sum(f.stat().st_size for f in files)
+        stats["total_size_mb"] = round(total_size / (1024 * 1024), 1)
+        stats["avg_size_mb"] = round(stats["total_size_mb"] / len(files), 1) if files else 0
+        
+        # Estimate hours (files * segment time)
+        stats["total_hours"] = round(len(files) * int(segment_time) / 3600, 1)
+        
+        # Estimate bitrate from average file size and segment duration
+        if stats["avg_size_mb"] > 0 and int(segment_time) > 0:
+            # bitrate = size_bytes * 8 / duration_seconds / 1_000_000
+            avg_bytes = stats["avg_size_mb"] * 1024 * 1024
+            stats["est_bitrate_mbps"] = round(avg_bytes * 8 / int(segment_time) / 1_000_000, 1)
+        
+        # Recent files (last 8)
+        recent = files[-8:] if len(files) >= 8 else files
+        recent.reverse()  # Most recent first
+        for f in recent:
+            try:
+                stats["recent_files"].append({
+                    "name": f.name,
+                    "size_mb": round(f.stat().st_size / (1024 * 1024), 1),
+                    "time": datetime.fromtimestamp(f.stat().st_mtime).strftime("%I:%M %p")
+                })
+            except:
+                continue
+        
+        # Detect gaps (>2x segment time between files)
+        threshold = int(segment_time) * 2
+        for i in range(1, len(files)):
+            prev_mtime = files[i-1].stat().st_mtime
+            curr_mtime = files[i].stat().st_mtime
+            gap = curr_mtime - prev_mtime - int(segment_time)
+            
+            if gap > threshold:
+                gap_start = datetime.fromtimestamp(prev_mtime + int(segment_time))
+                gap_end = datetime.fromtimestamp(curr_mtime)
+                stats["gaps"].append({
+                    "start": gap_start.strftime("%I:%M %p"),
+                    "end": gap_end.strftime("%I:%M %p"),
+                    "duration_min": round(gap / 60)
+                })
+        
+    except Exception as e:
+        logger.error(f"Error calculating recording stats: {e}")
+    
+    return stats
+
+def get_storage_trend():
+    """Get storage usage for the last 7 days."""
+    trend = []
+    try:
+        conf = Config.load()
+        base_path = Config.BOX_ROOT / conf["SUBFOLDER"]
+        
+        for i in range(7):
+            day = datetime.now() - timedelta(days=i)
+            day_path = base_path / day.strftime("%Y/%m/%d")
+            
+            if day_path.exists():
+                files = list(day_path.glob("*.mp4"))
+                total_mb = sum(f.stat().st_size for f in files) / (1024 * 1024)
+                hours = len(files) * int(conf.get("SEGMENT_TIME", 900)) / 3600
+            else:
+                total_mb = 0
+                hours = 0
+            
+            trend.append({
+                "date": day.strftime("%m/%d"),
+                "day": day.strftime("%a"),
+                "size_gb": round(total_mb / 1024, 2),
+                "hours": round(hours, 1),
+                "files": len(files) if day_path.exists() else 0
+            })
+        
+    except Exception as e:
+        logger.error(f"Error calculating storage trend: {e}")
+    
+    return trend
+
 # --- Routes ---
 
 @app.get("/", response_class=HTMLResponse)
@@ -179,6 +381,12 @@ async def api_stats():
     cpu_temp = get_cpu_temp()
     ping_ms = get_camera_ping(conf["CAMERA_IP"])
     
+    # New system metrics
+    cpu_usage = get_cpu_usage()
+    memory = get_memory_usage()
+    uptime = get_system_uptime()
+    network = get_network_io()
+    
     # 2. File & Timeline Logic
     today_path = Config.BOX_ROOT / conf["SUBFOLDER"] / datetime.now().strftime("%Y/%m/%d")
     current_file = "Waiting..."
@@ -188,6 +396,12 @@ async def api_stats():
     timeline_segments = []
     elapsed_seconds = 0
     segment_limit_seconds = int(conf.get("SEGMENT_TIME", 900))
+    
+    # Get comprehensive recording stats
+    recording_stats = get_recording_stats(today_path, segment_limit_seconds)
+    
+    # Get 7-day storage trend
+    storage_trend = get_storage_trend()
     
     if today_path.exists():
         files = list(today_path.glob("*.mp4"))
@@ -228,15 +442,48 @@ async def api_stats():
                 width_pct = (duration / 86400) * 100
                 timeline_segments.append({"left": f"{left_pct:.2f}%", "width": f"{width_pct:.2f}%"})
 
-    # Logs (Not easily accessible from container to host journal, skipping for now or reading local log file if we add one)
-    logs = "Logs unavailable in container mode (check 'docker logs')"
+    # Build alerts list
+    alerts = []
+    if disk and disk.get("percent", 0) > 85:
+        alerts.append({"type": "warning", "msg": f"Disk usage high: {disk['percent']}%"})
+    if not cam_active:
+        alerts.append({"type": "error", "msg": "Recorder offline"})
+    if not box_active:
+        alerts.append({"type": "error", "msg": "Storage mount unavailable"})
+    if ping_ms and ping_ms > 100:
+        alerts.append({"type": "warning", "msg": f"High camera latency: {ping_ms}ms"})
+    for gap in recording_stats.get("gaps", [])[-3:]:  # Last 3 gaps only
+        alerts.append({"type": "info", "msg": f"Gap: {gap['start']} - {gap['end']} ({gap['duration_min']}min)"})
 
     return JSONResponse({
-        "cam_active": cam_active, "box_active": box_active,
-        "current_file": current_file, "current_size": current_size, "status_msg": status_msg,
-        "disk": disk, "logs": logs, "files_today": files_today,
-        "cpu_temp": cpu_temp, "ping_ms": ping_ms, "timeline": timeline_segments,
-        "elapsed_seconds": elapsed_seconds, "segment_limit_seconds": segment_limit_seconds
+        # Original fields
+        "cam_active": cam_active, 
+        "box_active": box_active,
+        "current_file": current_file, 
+        "current_size": current_size, 
+        "status_msg": status_msg,
+        "disk": disk, 
+        "files_today": files_today,
+        "cpu_temp": cpu_temp, 
+        "ping_ms": ping_ms, 
+        "timeline": timeline_segments,
+        "elapsed_seconds": elapsed_seconds, 
+        "segment_limit_seconds": segment_limit_seconds,
+        
+        # New system metrics
+        "cpu_usage": cpu_usage,
+        "memory": memory,
+        "uptime": uptime,
+        "network": network,
+        
+        # Enhanced recording stats
+        "recording": recording_stats,
+        
+        # 7-day trend
+        "storage_trend": storage_trend,
+        
+        # Alerts
+        "alerts": alerts
     })
 
 @app.get("/library", response_class=HTMLResponse)
