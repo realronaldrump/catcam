@@ -775,12 +775,23 @@
                         const segMinutes = data.segment_limit_seconds ? Math.round(data.segment_limit_seconds / 60) : 0;
                         document.getElementById('seg-setting').textContent = segMinutes + ' min';
 
-                        // Recording stats - always update, showing 0 values when appropriate
+                        // Recording stats - support both new (data.recording) and old (top-level) API formats
                         const rec = data.recording || {};
-                        console.log('API recording data:', data.recording);
-                        console.log('rec.files_today:', rec.files_today, 'type:', typeof rec.files_today);
-                        document.getElementById('files-today').textContent = rec.files_today !== undefined ? rec.files_today : '--';
-                        document.getElementById('hours-today').textContent = rec.total_hours !== undefined ? rec.total_hours + ' hrs' : '-- hrs';
+
+                        // Fallback to old API format if recording object not present
+                        const filesCount = rec.files_today !== undefined ? rec.files_today : (data.files_today !== undefined ? data.files_today : '--');
+                        document.getElementById('files-today').textContent = filesCount;
+
+                        // For old API format, estimate hours from files_today and segment_limit_seconds
+                        let hoursRecorded = '--';
+                        if (rec.total_hours !== undefined) {
+                            hoursRecorded = rec.total_hours;
+                        } else if (data.files_today !== undefined && data.segment_limit_seconds) {
+                            hoursRecorded = (data.files_today * data.segment_limit_seconds / 3600).toFixed(1);
+                        }
+                        document.getElementById('hours-today').textContent = hoursRecorded + ' hrs';
+
+                        // Storage - only available in new API format
                         document.getElementById('storage-today').textContent = rec.total_size_mb !== undefined ? (rec.total_size_mb / 1024).toFixed(2) + ' GB' : '-- GB';
                         document.getElementById('avg-size').textContent = rec.avg_size_mb !== undefined ? rec.avg_size_mb + ' MB' : '-- MB';
                         document.getElementById('bitrate').textContent = rec.est_bitrate_mbps ? rec.est_bitrate_mbps + ' Mbps' : '-- Mbps';
