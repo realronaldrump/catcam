@@ -296,15 +296,10 @@ def get_recording_stats(today_path, segment_time):
     }
     
     try:
-        logger.info(f"get_recording_stats called with path={today_path}, segment_time={segment_time}")
-        
         if not today_path.exists():
-            logger.info(f"Path does not exist: {today_path}")
             return stats
         
         files = sorted(today_path.glob("*.mp4"), key=lambda x: x.stat().st_mtime)
-        logger.info(f"Found {len(files)} mp4 files")
-        
         if not files:
             return stats
         
@@ -335,8 +330,7 @@ def get_recording_stats(today_path, segment_time):
                     "size_mb": round(f.stat().st_size / (1024 * 1024), 1),
                     "time": datetime.fromtimestamp(f.stat().st_mtime).strftime("%I:%M %p")
                 })
-            except Exception as e:
-                logger.warning(f"Error processing recent file {f}: {e}")
+            except:
                 continue
         
         # Detect gaps (>2x segment time between files)
@@ -355,14 +349,11 @@ def get_recording_stats(today_path, segment_time):
                         "end": gap_end.strftime("%I:%M %p"),
                         "duration_min": round(gap / 60)
                     })
-            except Exception as e:
-                logger.warning(f"Error detecting gap at index {i}: {e}")
+            except:
                 continue
         
-        logger.info(f"Recording stats calculated: files={stats['files_today']}, hours={stats['total_hours']}, size_mb={stats['total_size_mb']}")
-        
     except Exception as e:
-        logger.error(f"Error calculating recording stats: {e}", exc_info=True)
+        logger.error(f"Error calculating recording stats: {e}")
     
     return stats
 
@@ -409,8 +400,6 @@ async def dashboard(request: Request):
 async def api_stats():
     # 1. System Vitals
     conf = Config.load()
-    logger.info(f"Config loaded: SUBFOLDER={conf.get('SUBFOLDER')}, SEGMENT_TIME={conf.get('SEGMENT_TIME')}")
-    
     cam_active = get_recorder_status()
     box_active = Config.BOX_ROOT.exists() and os.access(Config.BOX_ROOT, os.R_OK)
     disk = get_disk_usage()
@@ -425,8 +414,6 @@ async def api_stats():
     
     # 2. File & Timeline Logic
     today_path = Config.BOX_ROOT / conf["SUBFOLDER"] / datetime.now().strftime("%Y/%m/%d")
-    logger.info(f"Today path: {today_path}, exists: {today_path.exists()}")
-    
     current_file = "Waiting..."
     current_size = "0.00 MB"
     status_msg = "Idle"
@@ -445,7 +432,6 @@ async def api_stats():
     
     # Get comprehensive recording stats
     recording_stats = get_recording_stats(today_path, segment_limit_seconds)
-    logger.info(f"Recording stats: files_today={recording_stats.get('files_today')}, total_hours={recording_stats.get('total_hours')}, total_size_mb={recording_stats.get('total_size_mb')}")
     
     # Get 7-day storage trend
     storage_trend = get_storage_trend()
