@@ -730,7 +730,10 @@
         <script>
             function updateStats() {
                 fetch('/api/stats?t=' + Date.now())
-                    .then(r => r.json())
+                    .then(r => {
+                        if (!r.ok) throw new Error('API error: ' + r.status);
+                        return r.json();
+                    })
                     .then(data => {
                         // Status bar
                         const recDot = document.getElementById('rec-dot');
@@ -754,30 +757,31 @@
                         // Recording status
                         const writeStatus = document.getElementById('write-status');
                         const writeBadge = document.getElementById('write-badge');
-                        writeStatus.textContent = data.status_msg;
+                        writeStatus.textContent = data.status_msg || 'Unknown';
                         writeBadge.className = 'status-dot ' + (data.status_msg === 'Recording (Active)' ? 'green pulse' : 'yellow');
 
-                        document.getElementById('curr-file').textContent = data.current_file;
-                        document.getElementById('curr-size').textContent = data.current_size;
+                        document.getElementById('curr-file').textContent = data.current_file || 'None';
+                        document.getElementById('curr-size').textContent = data.current_size || '0.00 MB';
 
                         const fmtTime = (s) => {
+                            if (s === undefined || s === null) return '--:--';
                             const m = Math.floor(s / 60).toString().padStart(2, '0');
                             const sec = (s % 60).toString().padStart(2, '0');
                             return `${m}:${sec}`;
                         };
                         document.getElementById('rec-duration').textContent =
                             fmtTime(data.elapsed_seconds) + ' / ' + fmtTime(data.segment_limit_seconds);
-                        document.getElementById('seg-setting').textContent = Math.round(data.segment_limit_seconds / 60) + ' min';
 
-                        // Recording stats
-                        if (data.recording) {
-                            document.getElementById('files-today').textContent = data.recording.files_today;
-                            document.getElementById('hours-today').textContent = data.recording.total_hours + ' hrs';
-                            document.getElementById('storage-today').textContent = (data.recording.total_size_mb / 1024).toFixed(2) + ' GB';
-                            document.getElementById('avg-size').textContent = data.recording.avg_size_mb + ' MB';
-                            document.getElementById('bitrate').textContent = data.recording.est_bitrate_mbps ?
-                                data.recording.est_bitrate_mbps + ' Mbps' : '-- Mbps';
-                        }
+                        const segMinutes = data.segment_limit_seconds ? Math.round(data.segment_limit_seconds / 60) : 0;
+                        document.getElementById('seg-setting').textContent = segMinutes + ' min';
+
+                        // Recording stats - always update, showing 0 values when appropriate
+                        const rec = data.recording || {};
+                        document.getElementById('files-today').textContent = rec.files_today !== undefined ? rec.files_today : '--';
+                        document.getElementById('hours-today').textContent = rec.total_hours !== undefined ? rec.total_hours + ' hrs' : '-- hrs';
+                        document.getElementById('storage-today').textContent = rec.total_size_mb !== undefined ? (rec.total_size_mb / 1024).toFixed(2) + ' GB' : '-- GB';
+                        document.getElementById('avg-size').textContent = rec.avg_size_mb !== undefined ? rec.avg_size_mb + ' MB' : '-- MB';
+                        document.getElementById('bitrate').textContent = rec.est_bitrate_mbps ? rec.est_bitrate_mbps + ' Mbps' : '-- Mbps';
 
                         // System vitals
                         document.getElementById('cpu-temp').textContent = data.cpu_temp || '--';
@@ -841,12 +845,19 @@
                         } else {
                             alertsContainer.innerHTML = '<div class="no-alerts">✓ All systems normal</div>';
                         }
-                    });
 
-                // Update clocks
-                const now = new Date().toLocaleTimeString();
-                document.getElementById('clock').textContent = now;
-                document.getElementById('feed-clock').textContent = now;
+                        // Update clocks
+                        const now = new Date().toLocaleTimeString();
+                        document.getElementById('clock').textContent = now;
+                        document.getElementById('feed-clock').textContent = now;
+                    })
+                    .catch(err => {
+                        console.error('Stats fetch error:', err);
+                        // Still update clocks even on error
+                        const now = new Date().toLocaleTimeString();
+                        document.getElementById('clock').textContent = now;
+                        document.getElementById('feed-clock').textContent = now;
+                    });
             }
 
             setInterval(updateStats, 2000);
