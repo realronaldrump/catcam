@@ -674,16 +674,16 @@
                             <td id="hours-today">--</td>
                         </tr>
                         <tr>
-                            <td>Storage Used</td>
-                            <td id="storage-today">-- GB</td>
-                        </tr>
-                        <tr>
-                            <td>Avg File Size</td>
-                            <td id="avg-size">-- MB</td>
-                        </tr>
-                        <tr>
                             <td>Segment Time</td>
                             <td id="seg-setting">-- min</td>
+                        </tr>
+                        <tr>
+                            <td>Network RX</td>
+                            <td id="net-rx">-- GB</td>
+                        </tr>
+                        <tr>
+                            <td>Network TX</td>
+                            <td id="net-tx-stat">-- GB</td>
                         </tr>
                     </table>
                 </div>
@@ -791,10 +791,13 @@
                         }
                         document.getElementById('hours-today').textContent = hoursRecorded + ' hrs';
 
-                        // Storage - only available in new API format
-                        document.getElementById('storage-today').textContent = rec.total_size_mb !== undefined ? (rec.total_size_mb / 1024).toFixed(2) + ' GB' : '-- GB';
-                        document.getElementById('avg-size').textContent = rec.avg_size_mb !== undefined ? rec.avg_size_mb + ' MB' : '-- MB';
                         document.getElementById('bitrate').textContent = rec.est_bitrate_mbps ? rec.est_bitrate_mbps + ' Mbps' : '-- Mbps';
+
+                        // Network stats
+                        if (data.network) {
+                            document.getElementById('net-rx').textContent = data.network.rx_gb + ' GB';
+                            document.getElementById('net-tx-stat').textContent = data.network.tx_gb + ' GB';
+                        }
 
                         // System vitals
                         document.getElementById('cpu-temp').textContent = data.cpu_temp || '--';
