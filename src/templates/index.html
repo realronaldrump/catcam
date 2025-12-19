@@ -69,7 +69,8 @@
             transition: 0.2s;
         }
 
-        .nav a:hover, .nav a.active {
+        .nav a:hover,
+        .nav a.active {
             background: var(--nav-hover-bg);
             color: var(--nav-active-text);
         }
@@ -121,15 +122,35 @@
             flex-shrink: 0;
         }
 
-        .status-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
-        .status-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
-        .status-dot.yellow { background: var(--yellow); }
+        .status-dot.green {
+            background: var(--green);
+            box-shadow: 0 0 6px var(--green);
+        }
+
+        .status-dot.red {
+            background: var(--red);
+            box-shadow: 0 0 6px var(--red);
+        }
+
+        .status-dot.yellow {
+            background: var(--yellow);
+        }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
         }
-        .status-dot.pulse { animation: pulse 1.5s infinite; }
+
+        .status-dot.pulse {
+            animation: pulse 1.5s infinite;
+        }
 
         /* Main Grid */
         .dashboard-grid {
@@ -139,7 +160,9 @@
         }
 
         @media (max-width: 900px) {
-            .dashboard-grid { grid-template-columns: 1fr; }
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .card {
@@ -201,7 +224,7 @@
             position: absolute;
             top: 10px;
             right: 10px;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0, 0, 0, 0.7);
             color: white;
             padding: 3px 8px;
             border-radius: 4px;
@@ -418,12 +441,25 @@
             text-transform: uppercase;
         }
 
-        .green-badge { background-color: var(--green); color: white; }
-        .red-badge { background-color: var(--red); color: white; }
-        .yellow-badge { background-color: var(--yellow); color: #000; }
+        .green-badge {
+            background-color: var(--green);
+            color: white;
+        }
+
+        .red-badge {
+            background-color: var(--red);
+            color: white;
+        }
+
+        .yellow-badge {
+            background-color: var(--yellow);
+            color: #000;
+        }
 
         /* Settings & Library styles */
-        input, button, select {
+        input,
+        button,
+        select {
             padding: 10px;
             background: var(--input-bg);
             border: 1px solid var(--input-border);
@@ -439,7 +475,9 @@
             color: white;
         }
 
-        input[type="text"], input[type="number"], input[type="date"] {
+        input[type="text"],
+        input[type="number"],
+        input[type="date"] {
             width: 100%;
             margin-bottom: 10px;
         }
@@ -522,7 +560,7 @@
 
     <div class="container">
         {% if page == 'dashboard' %}
-        
+
         <!-- Status Bar -->
         <div class="status-bar">
             <div class="status-item">
@@ -580,7 +618,11 @@
                     <div class="card-header">Recent Recordings</div>
                     <table class="files-table">
                         <thead>
-                            <tr><th>File</th><th>Time</th><th>Size</th></tr>
+                            <tr>
+                                <th>File</th>
+                                <th>Time</th>
+                                <th>Size</th>
+                            </tr>
                         </thead>
                         <tbody id="recent-files"></tbody>
                     </table>
@@ -596,11 +638,26 @@
                         <span id="write-badge" class="status-dot yellow"></span>
                     </div>
                     <table class="data-table">
-                        <tr><td>Status</td><td id="write-status">--</td></tr>
-                        <tr><td>File</td><td id="curr-file">--</td></tr>
-                        <tr><td>Duration</td><td id="rec-duration">--:-- / --:--</td></tr>
-                        <tr><td>Size</td><td id="curr-size">-- MB</td></tr>
-                        <tr><td>Est. Bitrate</td><td id="bitrate">-- Mbps</td></tr>
+                        <tr>
+                            <td>Status</td>
+                            <td id="write-status">--</td>
+                        </tr>
+                        <tr>
+                            <td>File</td>
+                            <td id="curr-file">--</td>
+                        </tr>
+                        <tr>
+                            <td>Duration</td>
+                            <td id="rec-duration">--:-- / --:--</td>
+                        </tr>
+                        <tr>
+                            <td>Size</td>
+                            <td id="curr-size">-- MB</td>
+                        </tr>
+                        <tr>
+                            <td>Est. Bitrate</td>
+                            <td id="bitrate">-- Mbps</td>
+                        </tr>
                     </table>
                 </div>
 
@@ -608,11 +665,26 @@
                 <div class="card">
                     <div class="card-header">Today's Stats</div>
                     <table class="data-table">
-                        <tr><td>Segments</td><td id="files-today">--</td></tr>
-                        <tr><td>Hours Recorded</td><td id="hours-today">--</td></tr>
-                        <tr><td>Storage Used</td><td id="storage-today">-- GB</td></tr>
-                        <tr><td>Avg File Size</td><td id="avg-size">-- MB</td></tr>
-                        <tr><td>Segment Time</td><td id="seg-setting">-- min</td></tr>
+                        <tr>
+                            <td>Segments</td>
+                            <td id="files-today">--</td>
+                        </tr>
+                        <tr>
+                            <td>Hours Recorded</td>
+                            <td id="hours-today">--</td>
+                        </tr>
+                        <tr>
+                            <td>Storage Used</td>
+                            <td id="storage-today">-- GB</td>
+                        </tr>
+                        <tr>
+                            <td>Avg File Size</td>
+                            <td id="avg-size">-- MB</td>
+                        </tr>
+                        <tr>
+                            <td>Segment Time</td>
+                            <td id="seg-setting">-- min</td>
+                        </tr>
                     </table>
                 </div>
 
@@ -634,7 +706,8 @@
                         </div>
                     </div>
                     <div style="margin-top: 12px;">
-                        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
                             <span>Disk Usage</span>
                             <span id="disk-text">-- (-- free)</span>
                         </div>
@@ -662,20 +735,20 @@
                         // Status bar
                         const recDot = document.getElementById('rec-dot');
                         const boxDot = document.getElementById('box-dot');
-                        
+
                         recDot.className = 'status-dot ' + (data.cam_active ? 'green pulse' : 'red');
                         document.getElementById('rec-status').textContent = data.cam_active ? 'Active' : 'Offline';
-                        
+
                         boxDot.className = 'status-dot ' + (data.box_active ? 'green' : 'red');
                         document.getElementById('box-status').textContent = data.box_active ? 'Mounted' : 'Error';
-                        
+
                         document.getElementById('uptime').textContent = data.uptime || '--';
                         document.getElementById('cpu-usage').textContent = data.cpu_usage !== null ? data.cpu_usage + '%' : '--%';
-                        
+
                         if (data.memory) {
                             document.getElementById('mem-usage').textContent = data.memory.used_gb + '/' + data.memory.total_gb + 'G';
                         }
-                        
+
                         document.getElementById('disk-short').textContent = data.disk ? data.disk.percent + '%' : '--%';
 
                         // Recording status
@@ -683,16 +756,16 @@
                         const writeBadge = document.getElementById('write-badge');
                         writeStatus.textContent = data.status_msg;
                         writeBadge.className = 'status-dot ' + (data.status_msg === 'Recording (Active)' ? 'green pulse' : 'yellow');
-                        
+
                         document.getElementById('curr-file').textContent = data.current_file;
                         document.getElementById('curr-size').textContent = data.current_size;
-                        
+
                         const fmtTime = (s) => {
                             const m = Math.floor(s / 60).toString().padStart(2, '0');
                             const sec = (s % 60).toString().padStart(2, '0');
                             return `${m}:${sec}`;
                         };
-                        document.getElementById('rec-duration').textContent = 
+                        document.getElementById('rec-duration').textContent =
                             fmtTime(data.elapsed_seconds) + ' / ' + fmtTime(data.segment_limit_seconds);
                         document.getElementById('seg-setting').textContent = Math.round(data.segment_limit_seconds / 60) + ' min';
 
@@ -702,13 +775,13 @@
                             document.getElementById('hours-today').textContent = data.recording.total_hours + ' hrs';
                             document.getElementById('storage-today').textContent = (data.recording.total_size_mb / 1024).toFixed(2) + ' GB';
                             document.getElementById('avg-size').textContent = data.recording.avg_size_mb + ' MB';
-                            document.getElementById('bitrate').textContent = data.recording.est_bitrate_mbps ? 
+                            document.getElementById('bitrate').textContent = data.recording.est_bitrate_mbps ?
                                 data.recording.est_bitrate_mbps + ' Mbps' : '-- Mbps';
                         }
 
                         // System vitals
                         document.getElementById('cpu-temp').textContent = data.cpu_temp || '--';
-                        
+
                         const pingEl = document.getElementById('ping-ms');
                         if (data.ping_ms !== null) {
                             pingEl.textContent = data.ping_ms + 'ms';
@@ -724,11 +797,11 @@
 
                         // Disk
                         if (data.disk) {
-                            document.getElementById('disk-text').textContent = 
+                            document.getElementById('disk-text').textContent =
                                 data.disk.percent + '% (' + data.disk.free_gb + 'GB free)';
                             const diskBar = document.getElementById('disk-bar');
                             diskBar.style.width = data.disk.percent + '%';
-                            diskBar.style.background = data.disk.percent > 90 ? 'var(--red)' : 
+                            diskBar.style.background = data.disk.percent > 90 ? 'var(--red)' :
                                 data.disk.percent > 75 ? 'var(--yellow)' : 'var(--green)';
                         }
 
@@ -775,7 +848,7 @@
                 document.getElementById('clock').textContent = now;
                 document.getElementById('feed-clock').textContent = now;
             }
-            
+
             setInterval(updateStats, 2000);
             updateStats();
         </script>
@@ -784,7 +857,8 @@
         {% if page == 'library' %}
         <div class="card">
             <h2>📂 Video Library</h2>
-            <form action="/library" method="get" style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
+            <form action="/library" method="get"
+                style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
                 <input type="date" name="date" value="{{ current_date }}" required style="width: auto; margin: 0;">
                 <button type="submit" class="btn" style="width: auto; padding: 10px 25px;">Go</button>
             </form>
@@ -884,12 +958,14 @@
         <div class="card">
             <h2>⚙️ Settings</h2>
             {% if message %}
-            <div style="background: var(--green); color: white; padding: 10px; border-radius: 5px; margin-bottom: 15px;">{{ message }}</div>
+            <div
+                style="background: var(--green); color: white; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+                {{ message }}</div>
             {% endif %}
             <form action="/settings" method="post">
                 <label>Subfolder:</label>
                 <input type="text" name="subfolder" value="{{ config.SUBFOLDER }}">
-                
+
                 <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                     <div style="flex: 1;">
                         <label>Segment (min):</label>
@@ -897,10 +973,11 @@
                     </div>
                     <div style="flex: 1;">
                         <label>Segment (sec):</label>
-                        <input type="number" name="segment_seconds" value="{{ segment_seconds }}" min="0" max="59" required>
+                        <input type="number" name="segment_seconds" value="{{ segment_seconds }}" min="0" max="59"
+                            required>
                     </div>
                 </div>
-                
+
                 <h3>Camera</h3>
                 <label>IP:</label>
                 <input type="text" name="camera_ip" value="{{ config.CAMERA_IP }}">
@@ -910,6 +987,12 @@
                 <input type="password" name="camera_pass" value="{{ config.CAMERA_PASS }}">
                 <button type="submit" class="btn" style="margin-top: 10px;">Save & Restart</button>
             </form>
+            <div
+                style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border-color); text-align: right;">
+                <span
+                    style="font-size: 11px; color: var(--text-muted); font-family: 'SF Mono', 'Consolas', monospace;">{{
+                    version }}</span>
+            </div>
         </div>
         {% endif %}
     </div>

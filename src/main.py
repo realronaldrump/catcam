@@ -30,6 +30,26 @@ def validate_date_param(date_str: str) -> bool:
     except ValueError:
         return False
 
+def get_version():
+    """Gets version string from git commit count and short hash."""
+    try:
+        # Get commit count
+        count = subprocess.run(
+            ["git", "rev-list", "--count", "HEAD"],
+            capture_output=True, text=True, cwd=Path(__file__).parent.parent
+        )
+        # Get short hash
+        hash_result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, cwd=Path(__file__).parent.parent
+        )
+        
+        if count.returncode == 0 and hash_result.returncode == 0:
+            return f"v{count.stdout.strip()}.{hash_result.stdout.strip()}"
+    except Exception:
+        pass
+    return "dev"
+
 app = FastAPI()
 templates = Jinja2Templates(directory="src/templates")
 
@@ -540,7 +560,8 @@ async def settings(request: Request):
         "page": "settings", 
         "config": conf,
         "segment_minutes": minutes,
-        "segment_seconds": seconds
+        "segment_seconds": seconds,
+        "version": get_version()
     })
 
 @app.post("/settings")
@@ -576,7 +597,8 @@ async def save_settings(request: Request,
         "config": data, 
         "message": msg,
         "segment_minutes": segment_minutes,
-        "segment_seconds": segment_seconds
+        "segment_seconds": segment_seconds,
+        "version": get_version()
     })
 
 @app.get("/video_feed")
