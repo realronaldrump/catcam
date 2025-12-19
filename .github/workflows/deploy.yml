@@ -7,40 +7,30 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # This tells GitHub to use the "Systemd" runner on your Mini PC
+    runs-on: self-hosted
+    
     steps:
-      - name: Trigger Deployment Webhook
-        env:
-          # Ensure these secrets are set in your GitHub Repo Settings
-          SECRET: ${{ secrets.WEBHOOK_SECRET }}
-          HOST: ${{ secrets.CATCAM_HOST }}
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Update and Restart
         run: |
-          # 1. Clean the host variable (remove http/https prefix if accidentally included)
-          CLEAN_HOST=$(echo "$HOST" | sed -E 's|^https?://||')
+          # 1. Navigate to the folder
+          cd ~/catcam
           
-          # 2. Define the payload (Empty JSON object is standard for triggers)
-          PAYLOAD="{}"
+          # 2. Pull the latest code
+          git config pull.rebase false
+          git fetch origin
+          git reset --hard origin/main
           
-          # 3. Calculate HMAC-SHA1 Signature
-          # We use 'echo -n' to ensure no newline characters alter the hash.
-          # We pipe into openssl, then use awk to grab the hash from the output string.
-          SIG_HASH=$(echo -n "$PAYLOAD" | openssl dgst -sha1 -hmac "$SECRET" | awk '{print $2}')
+          # 3. Switch to Docker Desktop context (where your app is actually running)
+          # We add '|| true' so it doesn't crash if it's already set correctly.
+          docker context use desktop-linux || true
           
-          echo "Target Host: $CLEAN_HOST"
-          echo "Generating signature..."
+          # 4. Restart the App
+          # This updates the running containers with your new code
+          docker compose up -d --build --remove-orphans web recorder timelapser
           
-          # 4. Send the Request
-          # We construct the header 'X-Hub-Signature: sha1=HASH' to match webhook.json requirements
-          response_code=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X POST "http://${CLEAN_HOST}:9000/hooks/deploy" \
-            -H "Content-Type: application/json" \
-            -H "X-Hub-Signature: sha1=${SIG_HASH}" \
-            -d "$PAYLOAD")
-          
-          # 5. Validate Response
-          if [ "$response_code" -eq 200 ]; then
-            echo "✅ Success: Deployment triggered (HTTP 200)"
-          else
-            echo "❌ Error: Deployment failed with HTTP status $response_code"
-            exit 1
-          fi
+          # 5. Clean up disk space
+          docker image prune -f
