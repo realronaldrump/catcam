@@ -11,8 +11,14 @@ from fastapi import FastAPI, Request, Form, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from .config import Config
-from .timelapse import generate_timelapse
+
+# Support both package and direct execution
+try:
+    from .config import Config
+    from .timelapse import generate_timelapse
+except ImportError:
+    from config import Config
+    from timelapse import generate_timelapse
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
