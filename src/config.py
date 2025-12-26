@@ -20,7 +20,7 @@ class Config:
         defaults = {
             "SUBFOLDER": os.getenv("SUBFOLDER", "Other/CatCam"),
             "SEGMENT_TIME": os.getenv("SEGMENT_TIME", "900"),
-            "CAMERA_IP": os.getenv("CAMERA_IP", "192.168.1.163"),
+            "CAMERA_IP": os.getenv("CAMERA_IP", "192.168.1.58"),
             "CAMERA_USER": os.getenv("CAMERA_USER", "admin"),
             "CAMERA_PASS": os.getenv("CAMERA_PASS", "CoonCam19"),
             "TIMELAPSE_OUTPUT_DIR": os.getenv("TIMELAPSE_OUTPUT_DIR", "Timelapses"),
