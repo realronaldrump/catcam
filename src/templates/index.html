@@ -595,7 +595,14 @@
                 <div class="card live-feed" style="margin-bottom: 15px;">
                     <div class="live-badge">LIVE</div>
                     <div class="clock-badge" id="feed-clock">--:--:--</div>
+                    <!-- Audio Control -->
+                    <div id="audio-badge" class="clock-badge"
+                        style="top: auto; bottom: 10px; right: 10px; cursor: pointer; background: rgba(0,0,0,0.5);"
+                        onclick="toggleAudio()">
+                        🔇 Muted
+                    </div>
                     <img src="/video_feed" alt="Live Feed">
+                    <audio id="live-audio" style="display:none;"></audio>
                 </div>
 
                 <!-- Timeline -->
@@ -1007,7 +1014,7 @@
 
                 <div style="margin-bottom: 20px;">
                     <input type="checkbox" name="enable_audio" id="enable_audio" style="width: auto; margin-right: 5px;"
-                        {% if config.ENABLE_AUDIO == 'True' %}checked{% endif %}>
+                        {% if config.ENABLE_AUDIO=='True' %}checked{% endif %}>
                     <label for="enable_audio" style="cursor: pointer;">Enable Audio Recording (AAC)</label>
                 </div>
 
@@ -1042,6 +1049,31 @@
                 document.body.classList.add('light-mode');
             }
         })();
+
+        // Audio Logic
+        let isMuted = true;
+        const audioEl = document.getElementById('live-audio');
+        const audioBadge = document.getElementById('audio-badge');
+
+        function toggleAudio() {
+            isMuted = !isMuted;
+            if (!isMuted) {
+                // Unmute: Start stream
+                audioEl.src = "/audio_feed";
+                audioEl.play().catch(e => {
+                    console.log("Audio play failed:", e);
+                    alert("Click again to interact with the page first (browser policy).");
+                });
+                audioBadge.innerHTML = "🔊 Live Audio";
+                audioBadge.style.background = "rgba(40, 167, 69, 0.8)"; // Greenish
+            } else {
+                // Mute: Stop stream to save bandwidth
+                audioEl.pause();
+                audioEl.src = "";
+                audioBadge.innerHTML = "🔇 Muted";
+                audioBadge.style.background = "rgba(0,0,0,0.5)";
+            }
+        }
     </script>
 </body>
 

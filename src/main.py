@@ -470,13 +470,31 @@ async def api_stats():
             start_of_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
             
             for f in files:
-                end_ts = f.stat().st_mtime
-                duration = segment_limit_seconds # Default assumption
-                if f == latest and age < 20:
-                    duration = end_ts - f.stat().st_ctime
-                    if duration < 0: duration = 60
-                
-                start_ts = end_ts - duration
+                try:
+                    # Parse start time from filename to get actual duration
+                    # Format: PM-01-18-00
+                    file_time = datetime.strptime(f.stem, "%p-%I-%M-%S").time()
+                    start_dt = datetime.combine(datetime.now().date(), file_time)
+                    start_ts = start_dt.timestamp()
+                    
+                    end_ts = f.stat().st_mtime
+                    duration = end_ts - start_ts
+                    
+                    # Sanity check for negative or zero duration
+                    if duration <= 0:
+                        duration = segment_limit_seconds
+                        start_ts = end_ts - duration
+                        
+                except ValueError:
+                    # Fallback if filename parsing fails
+                    end_ts = f.stat().st_mtime
+                    duration = segment_limit_seconds
+                    if f == latest and age < 20:
+                        # Use creation time for active file if parsing fails
+                        # Note: st_ctime is change time on Linux, but best backward-compatible guess
+                        duration = end_ts - f.stat().st_ctime
+                    start_ts = end_ts - duration
+
                 left_pct = max(0, ((start_ts - start_of_day) / 86400) * 100)
                 width_pct = (duration / 86400) * 100
                 timeline_segments.append({"left": f"{left_pct:.2f}%", "width": f"{width_pct:.2f}%"})
@@ -634,6 +652,45 @@ async def video_feed():
                 time.sleep(0.1) # Wait for frame
                 
     return StreamingResponse(gen(), media_type="multipart/x-mixed-replace; boundary=frame")
+
+@app.get("/audio_feed")
+async def audio_feed():
+    """Streams audio from the camera as MP3."""
+    url = Config.get_rtsp_url()
+    
+    # Use ffmpeg to extract audio and encode to MP3 standard output
+    cmd = [
+        "ffmpeg",
+        "-nostdin",
+        "-rtsp_transport", "tcp",
+        "-timeout", "5000000",
+        "-i", url,
+        "-vn",              # weirdly enough, we want no video
+        "-f", "mp3",        # format mp3
+        "-c:a", "libmp3lame", # encoder
+        "-ab", "128k",      # bitrate
+        "-ac", "2",         # channels
+        "-ar", "44100",     # sample rate
+        "-"                 # output to pipe
+    ]
+    
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+
+    def generate_audio():
+        try:
+            while True:
+                data = process.stdout.read(4096)
+                if not data:
+                    break
+                yield data
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=2)
+            except:
+                process.kill()
+
+    return StreamingResponse(generate_audio(), media_type="audio/mpeg")
 
 @app.get("/play_file/{file_path:path}")
 async def play_file(file_path: str):
