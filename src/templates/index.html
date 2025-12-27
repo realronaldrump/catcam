@@ -1090,28 +1090,57 @@
         let isMuted = true;
         const audioEl = document.getElementById('live-audio');
         const audioBadge = document.getElementById('audio-badge');
+        let playPromise = undefined;
 
         async function toggleAudio() {
             if (isMuted) {
-                // Try to Unmute
+                // UNMUTE
                 try {
-                    audioEl.src = "/audio_feed";
-                    await audioEl.play();
-                    // Success
+                    // 1. Set source
+                    audioEl.src = "/audio_feed?t=" + Date.now(); // Cache bust
+                    audioEl.load(); // Explicit load
+
+                    // 2. Play and track promise
+                    playPromise = audioEl.play();
+                    await playPromise;
+
+                    // 3. Update UI on success
                     isMuted = false;
                     audioBadge.innerHTML = "🔊 Live Audio";
-                    audioBadge.style.background = "rgba(40, 167, 69, 0.8)"; // Greenish
+                    audioBadge.style.background = "rgba(40, 167, 69, 0.8)";
                 } catch (e) {
-                    console.error("Audio play failed:", e);
-                    showToast("Playback failed (User Interaction Needed). Try clicking again.");
-                    // Revert
-                    audioEl.src = "";
+                    if (e.name === 'AbortError') {
+                        // Ignore aborts (happens if user clicks mute quickly)
+                        console.log("Audio load aborted by user action.");
+                    } else {
+                        console.error("Audio play failed:", e);
+                        showToast("Playback failed. Click again to retry.");
+                        // Reset UI
+                        isMuted = true;
+                        audioBadge.innerHTML = "🔇 Muted";
+                        audioBadge.style.background = "rgba(0,0,0,0.5)";
+                    }
                 }
             } else {
-                // Mute
+                // MUTE
                 isMuted = true;
-                audioEl.pause();
-                audioEl.src = "";
+
+                // If a play is pending, we must wait for it or catch the rejection
+                if (playPromise !== undefined) {
+                    playPromise.then(_ => {
+                        audioEl.pause();
+                        audioEl.src = "";
+                        audioEl.load(); // Clear buffer
+                    }).catch(error => {
+                        // Auto-play was prevented or aborted
+                    });
+                } else {
+                    audioEl.pause();
+                    audioEl.src = "";
+                    audioEl.load();
+                }
+
+                // Update UI immediately
                 audioBadge.innerHTML = "🔇 Muted";
                 audioBadge.style.background = "rgba(0,0,0,0.5)";
             }
