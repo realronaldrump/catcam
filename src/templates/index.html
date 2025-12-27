@@ -1005,6 +1005,12 @@
                     </div>
                 </div>
 
+                <div style="margin-bottom: 20px;">
+                    <input type="checkbox" name="enable_audio" id="enable_audio" style="width: auto; margin-right: 5px;"
+                        {% if config.ENABLE_AUDIO == 'True' %}checked{% endif %}>
+                    <label for="enable_audio" style="cursor: pointer;">Enable Audio Recording (AAC)</label>
+                </div>
+
                 <h3>Camera</h3>
                 <label>IP:</label>
                 <input type="text" name="camera_ip" value="{{ config.CAMERA_IP }}">

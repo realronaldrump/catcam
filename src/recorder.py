@@ -151,14 +151,17 @@ def record_stream():
             print(f"Segment time: {segment_time}s")
             print(f"Running for {duration} seconds (until midnight)...")
             
+            # Prepare ffmpeg command
+            video_args = ["-c:v", "copy"]
+            audio_args = ["-c:a", "aac"] if conf.get("ENABLE_AUDIO", "True") == "True" else ["-an"]
+            
             cmd = [
                 "ffmpeg",
                 "-nostdin",
                 "-rtsp_transport", "tcp",
                 "-timeout", "5000000",
-                "-i", rtsp_url,
-                "-c:v", "copy",
-                "-c:a", "aac",
+                "-i", rtsp_url
+            ] + video_args + audio_args + [
                 "-map", "0",
                 "-f", "segment",
                 "-segment_time", str(segment_time),

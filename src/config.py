@@ -24,6 +24,7 @@ class Config:
             "CAMERA_USER": os.getenv("CAMERA_USER", "admin"),
             "CAMERA_PASS": os.getenv("CAMERA_PASS", "CoonCam19"),
             "TIMELAPSE_OUTPUT_DIR": os.getenv("TIMELAPSE_OUTPUT_DIR", "Timelapses"),
+            "ENABLE_AUDIO": os.getenv("ENABLE_AUDIO", "True"),
         }
         
         if cls.SETTINGS_FILE.exists():

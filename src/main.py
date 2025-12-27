@@ -590,7 +590,8 @@ async def save_settings(request: Request,
                       segment_seconds: int = Form(...),
                       camera_ip: str = Form(...), 
                       camera_user: str = Form(...), 
-                      camera_pass: str = Form(...)):
+                      camera_pass: str = Form(...),
+                      enable_audio: bool = Form(False)):
     
     # Convert minutes/seconds back to total seconds
     total_seconds = (segment_minutes * 60) + segment_seconds
@@ -600,7 +601,8 @@ async def save_settings(request: Request,
         "SEGMENT_TIME": str(total_seconds), 
         "CAMERA_IP": camera_ip, 
         "CAMERA_USER": camera_user, 
-        "CAMERA_PASS": camera_pass
+        "CAMERA_PASS": camera_pass,
+        "ENABLE_AUDIO": str(enable_audio)
     }
     
     # Save to persistent volume
