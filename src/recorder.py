@@ -165,7 +165,6 @@ def record_stream():
                 "-map", "0",
                 "-f", "segment",
                 "-segment_time", str(segment_time),
-                "-reset_timestamps", "1",
                 "-strftime", "1",
                 "-t", str(duration),
                 file_template
