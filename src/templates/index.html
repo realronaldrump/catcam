@@ -546,6 +546,33 @@
             font-size: 0.85em;
             color: var(--text-muted);
         }
+
+        /* Toast Notification */
+        .toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            text-align: center;
+            border-radius: 4px;
+            padding: 12px 20px;
+            position: fixed;
+            z-index: 2000;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s;
+            font-size: 13px;
+        }
+
+        .toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 50px;
+        }
     </style>
 </head>
 
@@ -1037,7 +1064,16 @@
         {% endif %}
     </div>
 
+    <div id="toast" class="toast"></div>
+
     <script>
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast show';
+            setTimeout(function () { t.className = t.className.replace('show', ''); }, 3000);
+        }
+
         function toggleTheme() {
             const body = document.body;
             body.classList.toggle('light-mode');
@@ -1055,19 +1091,25 @@
         const audioEl = document.getElementById('live-audio');
         const audioBadge = document.getElementById('audio-badge');
 
-        function toggleAudio() {
-            isMuted = !isMuted;
-            if (!isMuted) {
-                // Unmute: Start stream
-                audioEl.src = "/audio_feed";
-                audioEl.play().catch(e => {
-                    console.log("Audio play failed:", e);
-                    alert("Click again to interact with the page first (browser policy).");
-                });
-                audioBadge.innerHTML = "🔊 Live Audio";
-                audioBadge.style.background = "rgba(40, 167, 69, 0.8)"; // Greenish
+        async function toggleAudio() {
+            if (isMuted) {
+                // Try to Unmute
+                try {
+                    audioEl.src = "/audio_feed";
+                    await audioEl.play();
+                    // Success
+                    isMuted = false;
+                    audioBadge.innerHTML = "🔊 Live Audio";
+                    audioBadge.style.background = "rgba(40, 167, 69, 0.8)"; // Greenish
+                } catch (e) {
+                    console.error("Audio play failed:", e);
+                    showToast("Playback failed (User Interaction Needed). Try clicking again.");
+                    // Revert
+                    audioEl.src = "";
+                }
             } else {
-                // Mute: Stop stream to save bandwidth
+                // Mute
+                isMuted = true;
                 audioEl.pause();
                 audioEl.src = "";
                 audioBadge.innerHTML = "🔇 Muted";
