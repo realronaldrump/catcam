@@ -33,6 +33,44 @@ def get_seconds_until_next_run():
         
     return int((target - now).total_seconds())
 
+def _parse_recording_timestamp(target_date, video_path: Path) -> datetime | None:
+    """Parse a recording filename into a datetime for reliable ordering."""
+    try:
+        # File format from recorder: "%p-%I-%M-%S.mp4" (e.g., AM-01-02-03.mp4)
+        return datetime.strptime(
+            f"{target_date.strftime('%Y-%m-%d')} {video_path.stem}",
+            "%Y-%m-%d %p-%I-%M-%S",
+        )
+    except ValueError:
+        return None
+
+
+def _sort_recordings(target_date, files):
+    def sort_key(video_path: Path):
+        parsed = _parse_recording_timestamp(target_date, video_path)
+        if parsed is not None:
+            return parsed.timestamp()
+        try:
+            return video_path.stat().st_mtime
+        except FileNotFoundError:
+            return 0
+
+    return sorted(files, key=sort_key)
+
+
+def _filter_valid_recordings(files):
+    valid_files = []
+    for video_path in files:
+        try:
+            if video_path.stat().st_size > 0:
+                valid_files.append(video_path)
+            else:
+                print(f"Skipping empty recording: {video_path.name}")
+        except FileNotFoundError:
+            print(f"Skipping missing recording: {video_path.name}")
+    return valid_files
+
+
 def generate_timelapse(target_date=None, force=False):
     """
     Main logic to generate the timelapse.
@@ -78,12 +116,20 @@ def generate_timelapse(target_date=None, force=False):
         return {"success": False, "message": msg}
 
     # 1. Scan and Sort
-    files = sorted(list(source_dir.glob("*.mp4")))
+    files = list(source_dir.glob("*.mp4"))
     if not files:
         msg = f"No .mp4 files found for {target_date}."
         print(msg)
         return {"success": False, "message": msg}
-    
+
+    files = _filter_valid_recordings(files)
+    if not files:
+        msg = f"No valid recordings found for {target_date}."
+        print(msg)
+        return {"success": False, "message": msg}
+
+    files = _sort_recordings(target_date, files)
+
     print(f"Found {len(files)} videos.")
 
     # 2. Create Playlist
@@ -103,6 +149,7 @@ def generate_timelapse(target_date=None, force=False):
         
         cmd = [
             "ffmpeg",
+            "-nostdin",
             "-hwaccel", "auto",      # Attempt hardware acceleration
             "-f", "concat",
             "-safe", "0",
