@@ -185,6 +185,63 @@
             letter-spacing: 0.5px;
         }
 
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            align-items: end;
+        }
+
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .helper-text {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            font-size: 11px;
+        }
+
+        .range-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 12px;
+        }
+
+        .stack {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .button-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .btn.secondary {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+
+        .btn.secondary:hover {
+            background: var(--input-bg);
+        }
+
         /* Live Feed */
         .live-feed {
             position: relative;
@@ -953,18 +1010,61 @@
             <h2>⏱️ Timelapse Generator</h2>
             <div id="tl-msg" style="display:none; padding: 10px; border-radius: 5px; margin-bottom: 15px;"></div>
 
-            <form id="tl-form" onsubmit="triggerTimelapse(event)"
-                style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 200px;">
-                    <label style="display: block; margin-bottom: 5px;">Date:</label>
-                    <input type="date" name="date" max="{{ today }}" required style="margin-bottom: 0;">
+            <div class="stack">
+                <form id="tl-form" onsubmit="triggerTimelapse(event)" class="form-grid">
+                    <div class="form-row">
+                        <label>Date</label>
+                        <input type="date" name="date" max="{{ today }}" required style="margin-bottom: 0;">
+                    </div>
+                    <div class="form-row">
+                        <label>Speed multiplier</label>
+                        <input type="number" name="speed_multiplier" min="10" max="{{ speed_max }}" value="200" step="10"
+                            style="margin-bottom: 0;">
+                        <span class="helper-text">Higher = faster playback. Default 200x.</span>
+                    </div>
+                    <div class="form-row">
+                        <label class="pill">
+                            <input type="checkbox" name="force" id="force" style="width: auto;">
+                            Force re-generate
+                        </label>
+                    </div>
+                    <div class="form-row">
+                        <button type="submit" class="btn" style="width: auto; padding: 10px 20px;">Generate day</button>
+                        <span class="helper-text">Creates a single-day timelapse.</span>
+                    </div>
+                </form>
+
+                <div class="card" style="margin: 0;">
+                    <h3 style="margin-top: 0;">📅 Multi-day / Monthly Timelapse</h3>
+                    <form id="tl-range-form" onsubmit="triggerTimelapseRange(event)" class="range-grid">
+                        <div class="form-row">
+                            <label>Start date</label>
+                            <input type="date" name="start_date" max="{{ today }}" required style="margin-bottom: 0;">
+                        </div>
+                        <div class="form-row">
+                            <label>End date</label>
+                            <input type="date" name="end_date" max="{{ today }}" required style="margin-bottom: 0;">
+                        </div>
+                        <div class="form-row">
+                            <label>Speed multiplier</label>
+                            <input type="number" name="speed_multiplier" min="10" max="{{ speed_max }}" value="300" step="10"
+                                style="margin-bottom: 0;">
+                            <span class="helper-text">Uses daily timelapses to build longer ranges.</span>
+                        </div>
+                        <div class="form-row">
+                            <label class="pill">
+                                <input type="checkbox" name="force" id="force-range" style="width: auto;">
+                                Force re-generate
+                            </label>
+                        </div>
+                        <div class="form-row button-row">
+                            <button type="submit" class="btn" style="width: auto; padding: 10px 20px;">Generate range</button>
+                            <button type="button" class="btn secondary" onclick="setRangePreset(7)">Last 7 days</button>
+                            <button type="button" class="btn secondary" onclick="setRangePreset(30)">Last 30 days</button>
+                        </div>
+                    </form>
                 </div>
-                <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                    <input type="checkbox" name="force" id="force" style="width: auto; margin-right: 5px;">
-                    <label for="force" style="cursor: pointer;">Force Re-generate</label>
-                </div>
-                <button type="submit" class="btn" style="width: auto; padding: 10px 20px;">Generate</button>
-            </form>
+            </div>
             <script>
                 function triggerTimelapse(e) {
                     e.preventDefault();
@@ -989,6 +1089,45 @@
                             msgDiv.style.color = 'white';
                             msgDiv.innerText = "Error: " + err;
                         });
+                }
+
+                function triggerTimelapseRange(e) {
+                    e.preventDefault();
+                    const form = e.target;
+                    const formData = new FormData(form);
+                    const msgDiv = document.getElementById('tl-msg');
+
+                    fetch('/api/generate_timelapse_range', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(r => r.json())
+                        .then(data => {
+                            msgDiv.style.display = 'block';
+                            msgDiv.style.background = data.success ? 'var(--green)' : 'var(--red)';
+                            msgDiv.style.color = 'white';
+                            msgDiv.innerText = data.message;
+                        })
+                        .catch(err => {
+                            msgDiv.style.display = 'block';
+                            msgDiv.style.background = 'var(--red)';
+                            msgDiv.style.color = 'white';
+                            msgDiv.innerText = "Error: " + err;
+                        });
+                }
+
+                function setRangePreset(days) {
+                    const endInput = document.querySelector('input[name="end_date"]');
+                    const startInput = document.querySelector('input[name="start_date"]');
+                    if (!endInput || !startInput) {
+                        return;
+                    }
+                    const endDate = new Date();
+                    endDate.setDate(endDate.getDate() - 1);
+                    const startDate = new Date(endDate);
+                    startDate.setDate(startDate.getDate() - (days - 1));
+                    endInput.value = endDate.toISOString().slice(0, 10);
+                    startInput.value = startDate.toISOString().slice(0, 10);
                 }
             </script>
         </div>
