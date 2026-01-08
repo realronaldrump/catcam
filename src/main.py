@@ -15,10 +15,10 @@ from fastapi.staticfiles import StaticFiles
 # Support both package and direct execution
 try:
     from .config import Config
-    from .timelapse import generate_timelapse
+    from .timelapse import generate_timelapse, generate_timelapse_range, MAX_SPEED_MULTIPLIER
 except ImportError:
     from config import Config
-    from timelapse import generate_timelapse
+    from timelapse import generate_timelapse, generate_timelapse_range, MAX_SPEED_MULTIPLIER
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -738,11 +738,17 @@ async def timelapses(request: Request):
         "request": request, 
         "page": "timelapses", 
         "videos": videos,
-        "today": datetime.now().strftime("%Y-%m-%d")
+        "today": datetime.now().strftime("%Y-%m-%d"),
+        "speed_max": MAX_SPEED_MULTIPLIER
     })
 
 @app.post("/api/generate_timelapse")
-async def api_generate_timelapse(background_tasks: BackgroundTasks, date: str = Form(...), force: bool = Form(False)):
+async def api_generate_timelapse(
+    background_tasks: BackgroundTasks,
+    date: str = Form(...),
+    force: bool = Form(False),
+    speed_multiplier: int = Form(None),
+):
     # Validate date
     if not validate_date_param(date):
         return JSONResponse({"success": False, "message": "Invalid date format"}, status_code=400)
@@ -754,6 +760,51 @@ async def api_generate_timelapse(background_tasks: BackgroundTasks, date: str = 
         return JSONResponse({"success": False, "message": "Cannot generate timelapse for today or future dates."}, status_code=400)
 
     # Add to background tasks
-    background_tasks.add_task(generate_timelapse, target_date=target_date, force=force)
+    background_tasks.add_task(
+        generate_timelapse,
+        target_date=target_date,
+        force=force,
+        speed_multiplier=speed_multiplier,
+    )
     
     return JSONResponse({"success": True, "message": f"Timelapse generation started for {date}. Check back in a few minutes."})
+
+
+@app.post("/api/generate_timelapse_range")
+async def api_generate_timelapse_range(
+    background_tasks: BackgroundTasks,
+    start_date: str = Form(...),
+    end_date: str = Form(...),
+    force: bool = Form(False),
+    speed_multiplier: int = Form(None),
+):
+    if not validate_date_param(start_date) or not validate_date_param(end_date):
+        return JSONResponse({"success": False, "message": "Invalid date format"}, status_code=400)
+
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+    if start_dt >= datetime.now().date() or end_dt >= datetime.now().date():
+        return JSONResponse(
+            {"success": False, "message": "Cannot generate timelapse for today or future dates."},
+            status_code=400,
+        )
+
+    if start_dt > end_dt:
+        return JSONResponse(
+            {"success": False, "message": "Start date must be before end date."},
+            status_code=400,
+        )
+
+    background_tasks.add_task(
+        generate_timelapse_range,
+        start_date=start_dt,
+        end_date=end_dt,
+        force=force,
+        speed_multiplier=speed_multiplier,
+    )
+
+    return JSONResponse({
+        "success": True,
+        "message": f"Range timelapse generation started for {start_date} to {end_date}. Check back soon."
+    })

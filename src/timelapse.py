@@ -6,6 +6,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from .config import Config
 
+DEFAULT_SPEED_MULTIPLIER = 200
+MIN_SPEED_MULTIPLIER = 10
+MAX_SPEED_MULTIPLIER = 2000
+
 def wait_for_box():
     """Waits for the Box mount to be available and writable."""
     print("Waiting for Box mount at /data/box...")
@@ -71,7 +75,38 @@ def _filter_valid_recordings(files):
     return valid_files
 
 
-def generate_timelapse(target_date=None, force=False):
+def _normalize_speed_multiplier(speed_multiplier):
+    if speed_multiplier is None:
+        return DEFAULT_SPEED_MULTIPLIER
+    try:
+        speed = int(speed_multiplier)
+    except (TypeError, ValueError):
+        return DEFAULT_SPEED_MULTIPLIER
+    return max(MIN_SPEED_MULTIPLIER, min(MAX_SPEED_MULTIPLIER, speed))
+
+
+def _build_ffmpeg_command(playlist_path, output_file, speed_multiplier):
+    speed = _normalize_speed_multiplier(speed_multiplier)
+    return [
+        "ffmpeg",
+        "-nostdin",
+        "-hwaccel", "auto",      # Attempt hardware acceleration
+        "-f", "concat",
+        "-safe", "0",
+        "-i", str(playlist_path),
+        "-filter:v", f"setpts=PTS/{speed}",
+        "-an",
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        "-preset", "ultrafast",  # Max speed, larger file size
+        "-r", "30",              # Cap framerate to 30fps
+        "-crf", "30",            # Lower quality slightly to offset file size bloat
+        "-y",
+        str(output_file)
+    ]
+
+
+def generate_timelapse(target_date=None, force=False, speed_multiplier=None):
     """
     Main logic to generate the timelapse.
     Args:
@@ -146,24 +181,7 @@ def generate_timelapse(target_date=None, force=False):
 
         # 3. Run FFmpeg
         print(f"Starting timelapse generation -> {output_file}")
-        
-        cmd = [
-            "ffmpeg",
-            "-nostdin",
-            "-hwaccel", "auto",      # Attempt hardware acceleration
-            "-f", "concat",
-            "-safe", "0",
-            "-i", str(playlist_path),
-            "-filter:v", "setpts=0.01*PTS",
-            "-an",
-            "-c:v", "libx264",
-            "-pix_fmt", "yuv420p",
-            "-preset", "ultrafast",  # Max speed, larger file size
-            "-r", "30",              # Cap framerate to 30fps
-            "-crf", "30",            # Lower quality slightly to offset file size bloat
-            "-y",
-            str(output_file)
-        ]
+        cmd = _build_ffmpeg_command(playlist_path, output_file, speed_multiplier)
         
         start_time = time.time()
         subprocess.run(cmd, check=True)
@@ -186,6 +204,83 @@ def generate_timelapse(target_date=None, force=False):
         if playlist_path.exists():
             playlist_path.unlink()
             print("Cleaned up playlist.txt")
+
+
+def generate_timelapse_range(start_date, end_date, force=False, speed_multiplier=None):
+    if not wait_for_box():
+        return {"success": False, "message": "Box mount failed or timed out."}
+
+    if isinstance(start_date, datetime):
+        start_date = start_date.date()
+    if isinstance(end_date, datetime):
+        end_date = end_date.date()
+
+    if start_date > end_date:
+        return {"success": False, "message": "Start date must be before end date."}
+
+    conf = Config.load()
+    output_dir = Config.BOX_ROOT / conf["SUBFOLDER"] / conf["TIMELAPSE_OUTPUT_DIR"]
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_file = output_dir / f"range_{start_date.strftime('%Y-%m-%d')}_to_{end_date.strftime('%Y-%m-%d')}.mp4"
+    if output_file.exists() and not force:
+        msg = f"Range timelapse already exists for {start_date} to {end_date}. Skipping."
+        print(msg)
+        return {"success": True, "message": msg}
+
+    missing_dates = []
+    files = []
+    cursor = start_date
+    while cursor <= end_date:
+        daily_file = output_dir / f"{cursor.strftime('%Y-%m-%d')}.mp4"
+        if daily_file.exists():
+            files.append(daily_file)
+        else:
+            missing_dates.append(cursor.strftime("%Y-%m-%d"))
+        cursor += timedelta(days=1)
+
+    if not files:
+        msg = "No daily timelapses found in the selected range."
+        print(msg)
+        return {"success": False, "message": msg}
+
+    playlist_path = output_dir / f"playlist_range_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.txt"
+    try:
+        with open(playlist_path, "w") as f:
+            for video in files:
+                path_str = str(video.absolute()).replace("'", "'\\''")
+                f.write(f"file '{path_str}'\n")
+
+        print(f"Created range playlist at {playlist_path}")
+        print(f"Starting range timelapse generation -> {output_file}")
+
+        cmd = _build_ffmpeg_command(playlist_path, output_file, speed_multiplier)
+        start_time = time.time()
+        subprocess.run(cmd, check=True)
+        duration = time.time() - start_time
+
+        missing_msg = ""
+        if missing_dates:
+            missing_msg = f" Missing days: {', '.join(missing_dates)}."
+
+        msg = (
+            f"Range timelapse created successfully in {duration:.2f} seconds!"
+            f"{missing_msg}"
+        )
+        print(msg)
+        return {"success": True, "message": msg}
+    except subprocess.CalledProcessError as e:
+        msg = f"FFmpeg failed: {e}"
+        print(msg)
+        return {"success": False, "message": msg}
+    except Exception as e:
+        msg = f"Error during range timelapse generation: {e}"
+        print(msg)
+        return {"success": False, "message": msg}
+    finally:
+        if playlist_path.exists():
+            playlist_path.unlink()
+            print("Cleaned up range playlist")
 
 def main():
     # Flush stdout for Docker logs
