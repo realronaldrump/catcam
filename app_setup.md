@@ -10,7 +10,7 @@ CatCam is a custom Network Video Recorder (NVR) application designed to record a
 ### Hardware
 *   **Host Machine:** Mini PC running Ubuntu 24.04 LTS.
 *   **Camera:** Reolink IP Camera.
-    *   **Local IP:** `192.168.1.58` (Static/DHCP reservation recommended).
+    *   **Local IP:** `192.168.1.163` (Static/DHCP reservation recommended).
     *   **Protocol:** RTSP (TCP transport).
 
 ### Network Access
@@ -46,7 +46,7 @@ WEBHOOK_SECRET=your_github_secret_here
 
 ### App Settings (`config/settings.env`)
 Located in the Docker volume `catcam_config`. Can be edited via the Web Dashboard (**Settings** tab).
-*   `CAMERA_IP`: 192.168.1.58
+*   `CAMERA_IP`: 192.168.1.163
 *   `CAMERA_USER`: admin
 *   `CAMERA_PASS`: [Hidden]
 *   `SEGMENT_TIME`: 900 (15 minutes)
